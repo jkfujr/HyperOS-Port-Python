@@ -6,6 +6,7 @@ import math
 import logging
 import shutil
 import subprocess
+import zipfile
 from pathlib import Path
 from src.utils.shell import ShellRunner
 from src.utils.fspatch import patch_fs_config
@@ -437,23 +438,32 @@ class Repacker:
         # 5. Zip the package
         self.logger.info("Zipping hybrid package...")
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
-        zip_name = f"{self.ctx.stock_rom_code}-hybrid-{self.ctx.target_rom_version}-{timestamp}.zip"
-        zip_path = self.out_dir / zip_name
-        
-        # Create zip (shutil.make_archive creates zip in a temp way, better explicit)
-        # We need to zip the contents of out_path, not out_path itself
-        
-        # Use shell zip for speed and permission preservation (if available) or python zipfile
-        # Python zipfile is safer for cross-platform
-        shutil.make_archive(str(zip_path.with_suffix('')), 'zip', out_path)
-        
-        # Compute MD5
-        md5 = hashlib.md5(open(zip_path, 'rb').read()).hexdigest()[:10]
-        final_zip_name = f"{self.ctx.stock_rom_code}-hybrid-{self.ctx.target_rom_version}-{timestamp}-{md5}.zip"
+        final_zip_name = f"{self.ctx.stock_rom_code}-hybrid-{self.ctx.target_rom_version}-{timestamp}.zip"
         final_zip_path = self.out_dir / final_zip_name
-        zip_path.rename(final_zip_path)
         
-        self.logger.info(f"Hybrid ROM generated: {final_zip_path}")
+        # Create zip manually to control compression
+        with zipfile.ZipFile(final_zip_path, 'w', compression=zipfile.ZIP_DEFLATED) as zf:
+            for root, dirs, files in os.walk(out_path):
+                for file in files:
+                    file_path = Path(root) / file
+                    arcname = file_path.relative_to(out_path)
+                    
+                    if file == "super.zst":
+                        self.logger.info(f"Adding super.zst (STORED)...")
+                        zf.write(file_path, arcname, compress_type=zipfile.ZIP_STORED)
+                    else:
+                        zf.write(file_path, arcname)
+
+        # Compute MD5
+        md5 = hashlib.md5(open(final_zip_path, 'rb').read()).hexdigest()[:10]
+        renamed_zip_name = f"{self.ctx.stock_rom_code}-hybrid-{self.ctx.target_rom_version}-{timestamp}-{md5}.zip"
+        renamed_zip_path = self.out_dir / renamed_zip_name
+        final_zip_path.rename(renamed_zip_path)
+        
+        self.logger.info(f"Hybrid ROM generated: {renamed_zip_path}")
+        
+        # Clean up temporary output directory
+        shutil.rmtree(out_path)
 
     def _process_script_placeholders(self, file_path):
         """Replace placeholders in scripts/update-binary"""
