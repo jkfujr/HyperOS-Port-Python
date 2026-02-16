@@ -456,7 +456,12 @@ class Repacker:
 
         # Compute MD5
         md5 = hashlib.md5(open(final_zip_path, 'rb').read()).hexdigest()[:10]
-        renamed_zip_name = f"{self.ctx.stock_rom_code}-hybrid-{self.ctx.target_rom_version}-{timestamp}-{md5}.zip"
+        # Rename to match update-binary expectation: Device_Version_Date_MD5_Type.zip
+        # update-binary uses `cut -d '_' -f 4` to get MD5
+        # So format should be: Part1_Part2_Part3_MD5_Part5.zip
+        # Let's map: Device_Hybrid_Version_MD5_Timestamp.zip
+        
+        renamed_zip_name = f"{self.ctx.stock_rom_code}_Hybrid_{self.ctx.target_rom_version}_{md5}_{timestamp}.zip"
         renamed_zip_path = self.out_dir / renamed_zip_name
         final_zip_path.rename(renamed_zip_path)
         
