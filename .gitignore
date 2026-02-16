@@ -40,6 +40,9 @@ devices/**/*.apk
 *.bin
 tmp/
 
+# Exception for otatools library
+!otatools/lib64/
+
 # Editor specific
 .idea/
 .vscode/
