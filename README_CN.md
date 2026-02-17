@@ -81,6 +81,12 @@
 ]
 ```
 
+### 属性模板 (高级)
+
+系统属性和调度器配置也通过 JSON 进行管理：
+- `devices/common/props_global.json`: 定义全局属性模板（构建时间、设备代码等）。
+- `devices/common/scheduler.json`: 定义不同平台（sm8550, sm8450 等）的 CPU 亲和性和调度器设置。
+
 ## 前置条件
 
 - Python 3.8+

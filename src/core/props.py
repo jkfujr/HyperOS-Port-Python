@@ -1,3 +1,4 @@
+import json
 import os
 import time
 import re
@@ -37,7 +38,7 @@ class PropertyModifier:
         self.logger.info("Build.prop modifications completed.")
 
     def _update_general_info(self):
-        """Corresponds to most logic in Shell script 'modifying build.prop'"""
+        """Modified to load from devices/common/props_global.json"""
         
         # Generate timestamp
         now = datetime.now(timezone.utc)
@@ -49,46 +50,46 @@ class PropertyModifier:
         
         self.logger.debug(f"General Info Update: BaseCode={base_code}, ROMVersion={rom_version}")
         
-        # Key-value mapping to replace
-        replacements = {
-            "ro.build.date=": f"ro.build.date={build_date}",
-            "ro.build.date.utc=": f"ro.build.date.utc={build_utc}",
-            "ro.odm.build.date=": f"ro.odm.build.date={build_date}",
-            "ro.odm.build.date.utc=": f"ro.odm.build.date.utc={build_utc}",
-            "ro.vendor.build.date=": f"ro.vendor.build.date={build_date}",
-            "ro.vendor.build.date.utc=": f"ro.vendor.build.date.utc={build_utc}",
-            "ro.system.build.date=": f"ro.system.build.date={build_date}",
-            "ro.system.build.date.utc=": f"ro.system.build.date.utc={build_utc}",
-            "ro.product.build.date=": f"ro.product.build.date={build_date}",
-            "ro.product.build.date.utc=": f"ro.product.build.date.utc={build_utc}",
-            "ro.system_ext.build.date=": f"ro.system_ext.build.date={build_date}",
-            "ro.system_ext.build.date.utc=": f"ro.system_ext.build.date.utc={build_utc}",
-            
-            # Device code replacement
-            "ro.product.device=": f"ro.product.device={base_code}",
-            "ro.product.product.name=": f"ro.product.product.name={base_code}",
-            "ro.product.odm.device=": f"ro.product.odm.device={base_code}",
-            "ro.product.vendor.device=": f"ro.product.vendor.device={base_code}",
-            "ro.product.system.device=": f"ro.product.system.device={base_code}",
-            "ro.product.board=": f"ro.product.board={base_code}",
-            "ro.product.system_ext.device=": f"ro.product.system_ext.device={base_code}",
-            "ro.mi.os.version.incremental=" : f"ro.mi.os.version.incremental={rom_version}",
-            "ro.build.version.incremental=" : f"ro.build.version.incremental={rom_version}",
-            "ro.product.build.version.incremental=" : f"ro.product.build.version.incremental={rom_version}",
-            
-            # Other misc
-            "persist.sys.timezone=": "persist.sys.timezone=Asia/Shanghai",
-            "ro.build.user=": f"ro.build.user={self.build_user}",
-        }
+        # Load Config
+        config_path = Path("devices/common/props_global.json")
+        if not config_path.exists():
+            self.logger.warning("props_global.json not found, skipping general info update.")
+            return
 
-        # EU version check
+        try:
+            with open(config_path, 'r') as f:
+                config = json.load(f)
+        except Exception as e:
+            self.logger.error(f"Failed to load props_global.json: {e}")
+            return
+
+        # Prepare replacements
+        # 1. Common
+        replacements = config.get("common", {})
+        
+        # 2. EU vs CN
         is_eu = getattr(self.ctx, "is_port_eu_rom", False)
         if is_eu:
-            replacements["ro.product.mod_device="] = f"ro.product.mod_device={base_code}_xiaomieu_global"
-            replacements["ro.build.host="] = "ro.build.host=xiaomi.eu"
+            replacements.update(config.get("eu_rom", {}))
         else:
-            replacements["ro.product.mod_device="] = f"ro.product.mod_device={base_code}"
-            replacements["ro.build.host="] = f"ro.build.host={self.build_host}"
+            replacements.update(config.get("cn_rom", {}))
+
+        # Format values (Placeholder replacement)
+        fmt_map = {
+            "build_date": build_date,
+            "build_utc": build_utc,
+            "base_code": base_code,
+            "rom_version": rom_version,
+            "build_user": self.build_user,
+            "build_host": self.build_host
+        }
+        
+        # Build final key-value map for processing
+        final_replacements = {}
+        for k, v in replacements.items():
+            formatted_val = v.format(**fmt_map)
+            # The map expects: "key=": "key=value"
+            final_replacements[f"{k}="] = f"{k}={formatted_val}"
 
         # Iterate all build.prop and modify
         for prop_file in self.ctx.target_dir.rglob("build.prop"):
@@ -104,7 +105,7 @@ class PropertyModifier:
                 
                 # 1. Dictionary replacement logic
                 replaced = False
-                for prefix, new_val in replacements.items():
+                for prefix, new_val in final_replacements.items():
                     if line.startswith(prefix):
                         if original_line.strip() != new_val:
                             self.logger.debug(f"[{prop_file.name}] Replace: {line} -> {new_val}")
@@ -317,6 +318,7 @@ class PropertyModifier:
     def _optimize_core_affinity(self):
         """
         Core allocation and scheduler optimization (supports sm8250, sm8450, sm8550 and Android version differences)
+        Updated to use devices/common/scheduler.json
         """
         self.logger.info("Optimizing core affinity and scheduler...")
         
@@ -337,58 +339,18 @@ class PropertyModifier:
                 except: pass
             return "unknown"
 
-        # 2. Define property config dictionaries
-        
-        # === SM8550 (Snapdragon 8 Gen 2) ===
-        props_sm8550 = {
-            "persist.sys.miui_animator_sched.bigcores": "3-6",
-            "persist.sys.miui_animator_sched.sched_threads": "2",
-            "persist.sys.miui_animator_sched.big_prime_cores": "3-7",
-            "persist.vendor.display.miui.composer_boost": "4-7",
-            "persist.sys.brightmillet.enable": "true",
-            "persist.sys.millet.newversion": "true",
-            "ro.miui.affinity.sfre": "2-6",
-            "ro.miui.affinity.sfui": "2-6",
-            "ro.miui.affinity.sfuireset": "0-6",
-            "persist.sys.millet.handshake": "true"
-        }
-
-        # === SM8450 (Snapdragon 8 Gen 1) ===
-        props_sm8450 = {
-            "persist.sys.miui_animator_sched.bigcores": "4-7",
-            "persist.sys.miui_animator_sched.big_prime_cores": "4-7",
-            "persist.vendor.display.miui.composer_boost": "4-7",
-            "ro.miui.affinity.sfui": "4-7",
-            "ro.miui.affinity.sfre": "4-7",
-        }
-
-        # === SM8250 (Snapdragon 865) ===
-        props_sm8250 = {
-            "persist.sys.miui_animator_sched.bigcores": "4-7",
-            "persist.sys.miui_animator_sched.big_prime_cores": "4-7",
-            "ro.miui.affinity.sfui": "4-7",
-        }
-
-        # === Android 15 (Generic) ===
-        props_a15_generic = {
-            "ro.miui.affinity.sfui": "4-7",
-            "ro.miui.affinity.sfre": "4-7",
-            "ro.miui.affinity.sfuireset": "4-7",
-            "persist.sys.miui_animator_sched.bigcores": "4-7",
-            "persist.sys.miui_animator_sched.big_prime_cores": "4-7",
-            "persist.vendor.display.miui.composer_boost": "4-7",
-        }
-
-        # === Default / Android 14 (Generic) ===
-        props_default = {
-            "persist.sys.miui_animator_sched.bigcores": "4-6",
-            "persist.sys.miui_animator_sched.big_prime_cores": "4-7",
-            "persist.sys.miui.sf_cores": "4-7",
-            "persist.sys.minfree_def": "73728,92160,110592,154832,482560,579072",
-            "persist.sys.minfree_6g": "73728,92160,110592,258048,663552,903168",
-            "persist.sys.minfree_8g": "73728,92160,110592,387072,1105920,1451520",
-            "persist.vendor.display.miui.composer_boost": "4-7",
-        }
+        # 2. Load Configuration
+        config_path = Path("devices/common/scheduler.json")
+        if not config_path.exists():
+            self.logger.warning("scheduler.json not found, using empty config.")
+            config = {}
+        else:
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+            except Exception as e:
+                self.logger.error(f"Failed to load scheduler.json: {e}")
+                return
 
         # 3. Get state
         platform = get_platform_code()
@@ -399,21 +361,12 @@ class PropertyModifier:
         # 4. Match logic
         target_props = {}
         
-        match (platform, android_ver):
-            case ("sm8550", _):
-                target_props = props_sm8550
-            
-            case ("sm8450", _):
-                target_props = props_sm8450
-                
-            case ("sm8250", _):
-                target_props = props_sm8250
-
-            case ("unknown", "15"):
-                target_props = props_a15_generic
-            
-            case _:
-                target_props = props_default
+        if platform in config:
+            target_props = config[platform]
+        elif platform == "unknown" and android_ver == "15" and "android_15" in config:
+            target_props = config["android_15"]
+        else:
+            target_props = config.get("default", {})
 
         # 5. Batch apply
         if target_props:

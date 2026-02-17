@@ -81,6 +81,12 @@ Example `replacements.json`:
 ]
 ```
 
+### Property Templates (Advanced)
+
+System properties and scheduler configurations are also managed via JSON:
+- `devices/common/props_global.json`: Defines global property templates (build time, device code).
+- `devices/common/scheduler.json`: Defines CPU affinity and scheduler settings per platform (sm8550, sm8450, etc.).
+
 ## Prerequisites
 
 - Python 3.8+
