@@ -5,6 +5,7 @@ import re
 import logging
 from pathlib import Path
 from datetime import datetime, timezone
+from src.core.config_merger import ConfigMerger
 
 class PropertyModifier:
     def __init__(self, context):
@@ -13,6 +14,7 @@ class PropertyModifier:
         """
         self.ctx = context
         self.logger = logging.getLogger("PropModifier")
+        self.merger = ConfigMerger(self.logger)
         
         # Custom build info (can be passed from external parameters)
         self.build_user = os.getenv("BUILD_USER", "Bruce")
@@ -36,12 +38,42 @@ class PropertyModifier:
 
         # 5. Reconstruct Hardware Props from Base
         self._reconstruct_props()
+
+        # 6. Apply Custom Props from props.json (New)
+        self._apply_custom_props()
         
         self._regenerate_fingerprint()
         
         self._optimize_core_affinity()
         
         self.logger.info("Build.prop modifications completed.")
+
+    def _apply_custom_props(self):
+        """
+        Load and apply custom properties from props.json across hierarchy.
+        """
+        paths = [
+            Path("devices/common"),
+            Path(f"devices/{getattr(self.ctx, 'base_chipset_family', 'unknown')}"),
+            Path(f"devices/{self.ctx.stock_rom_code}")
+        ]
+        valid_paths = [p for p in paths if p.exists()]
+        
+        config, report = self.merger.load_and_merge(valid_paths, "props.json")
+        if not config:
+            return
+
+        self.logger.info("Applying custom properties from props.json...")
+        for partition, props in config.items():
+            # Find the prop file for this partition
+            prop_file = self.ctx.get_target_prop_file(partition)
+            if not prop_file or not prop_file.exists():
+                self.logger.warning(f"  Target prop file for partition '{partition}' not found.")
+                continue
+
+            self.logger.info(f"  Processing {partition} properties...")
+            for key, value in props.items():
+                self._update_or_append_prop(prop_file, key, value)
 
     def _global_codename_replacement(self):
         """

@@ -58,30 +58,6 @@
                     "new": "726F2E73706F6F6665642E646576696365"
                 }
             ]
-        },
-        {
-            "id": "fuxi_camera_libs_patch",
-            "description": "Fuxi Camera Algorithm Libs (Leica Algorithms)",
-            "type": "file",
-            "search_path": "vendor/lib64",
-            "match_mode": "glob",
-            "ensure_exists": false,
-            "files": [
-                "libcamera_*.so",
-                "libmiparking.so",
-                "libmicamera_*.so"
-            ]
-        },
-        {
-            "id": "fuxi_odm_vintf",
-            "description": "Fuxi ODM VINTF Sync (Hardware Interface)",
-            "type": "file",
-            "search_path": "odm/etc/vintf",
-            "match_mode": "glob",
-            "ensure_exists": true,
-            "files": [
-                "manifest_*.xml"
-            ]
         }
     ]
 }
