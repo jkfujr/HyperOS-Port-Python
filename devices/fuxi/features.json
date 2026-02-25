@@ -1,4 +1,8 @@
 {
+    "xml_features": {
+        "support_wild_boost": true,
+        "support_wild_boost_bat_perf": true
+    },
     "build_props": {
         "product": {
             "ro.product.spoofed.name": "vermeer",

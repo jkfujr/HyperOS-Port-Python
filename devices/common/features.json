@@ -8,8 +8,6 @@
         "support_manual_dimming": true,
         "support_main_xiaoai": true,
         "support_ota_validate": false,
-        "support_wild_boost": true,
-        "support_wild_boost_bat_perf": true,
         "support_power_consumption": true
     },
     "build_props": {
