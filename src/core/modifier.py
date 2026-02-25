@@ -158,11 +158,48 @@ class SystemModifier:
                     self._handle_hexpatch(rule)
                 elif rtype == "append_text":
                     self._handle_append_text(rule)
+                elif rtype == "copy_local":
+                    self._handle_copy_local(rule)
                 else:
                     # Legacy 'file' type logic
                     self._handle_legacy_replacement(rule)
             except Exception as e:
                 self.logger.error(f"Failed to apply rule '{desc}': {e}")
+
+    def _handle_copy_local(self, rule):
+        # source is relative to project root, target is relative to target_dir
+        source = Path(rule["source"])
+        if not source.exists():
+            self.logger.warning(f"  Local source not found: {rule['source']}")
+            return
+
+        target_val = rule["target"]
+        target_files = []
+        
+        if "/" in target_val:
+            # Full path relative to target_dir
+            tf = self.ctx.target_dir / target_val
+            target_files.append(tf)
+        else:
+            # Just a filename, search for it in target
+            target_files = list(self.ctx.target_dir.rglob(target_val))
+
+        if not target_files:
+            if rule.get("ensure_exists", False):
+                 # If it doesn't exist but we must have it, we need a path. 
+                 # This handler is better with explicit paths or rglob if it's a replacement.
+                 self.logger.warning(f"  Target not found for copy_local: {target_val}")
+            return
+
+        for target_file in target_files:
+            self.logger.debug(f"    [Copy Local] {source} -> {target_file.relative_to(self.ctx.target_dir)}")
+            if not target_file.parent.exists():
+                target_file.parent.mkdir(parents=True, exist_ok=True)
+            
+            if source.is_dir():
+                shutil.copytree(source, target_file, dirs_exist_ok=True)
+            else:
+                shutil.copy2(source, target_file)
 
     def _handle_append_text(self, rule):
         target_file = self.ctx.target_dir / rule["target"]

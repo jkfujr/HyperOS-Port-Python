@@ -69,9 +69,9 @@
         {
             "description": "OTA Certificate Sync",
             "id": "ota_cert_sync",
-            "type": "unzip_override",
-            "source": "devices/common/ota_cert.zip",
-            "target": "."
+            "type": "copy_local",
+            "source": "devices/common/otacerts.zip",
+            "target": "otacerts.zip"
         }
     ]
 }
