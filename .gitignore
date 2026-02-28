@@ -52,3 +52,7 @@ test/
 *.bak
 *.odex
 *.vdex
+
+# KernelSU assets (downloaded online)
+assets/
+devices/fuxi/override/16/product/priv-app/MiuiExtraPhoto/MiuiExtraPhoto.apk
