@@ -41,7 +41,7 @@ devices/**/*.apk
 *.bin
 tmp/
 test/
-
+roms/
 # Exception for otatools library
 !otatools/lib64/
 
@@ -56,3 +56,4 @@ test/
 # KernelSU assets (downloaded online)
 assets/
 devices/fuxi/override/16/product/priv-app/MiuiExtraPhoto/MiuiExtraPhoto.apk
+mk_erofs.sh
