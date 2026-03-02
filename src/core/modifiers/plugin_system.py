@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional, Type, Callable
 from pathlib import Path
 import logging
 
+from src.core.modifiers.transaction import TransactionManager, Transaction
+
 
 class ModifierPlugin(ABC):
     """Base class for all modifier plugins.
@@ -27,6 +29,25 @@ class ModifierPlugin(ABC):
         self.ctx = context
         self.logger = logger or logging.getLogger(self.name or self.__class__.__name__)
         self.enabled = True
+        self._plugin_manager: Optional['PluginManager'] = None
+    
+    def set_plugin_manager(self, manager: 'PluginManager'):
+        """Set the plugin manager for this plugin."""
+        self._plugin_manager = manager
+    
+    def record_modification(self, path: Path, action: str = 'modify') -> Optional[Path]:
+        """Record a file modification for potential rollback.
+        
+        Args:
+            path: Path to the file being modified
+            action: 'modify', 'delete', or 'create'
+            
+        Returns:
+            Path to backup file if created, None otherwise
+        """
+        if self._plugin_manager:
+            return self._plugin_manager.record_modification(path, action)
+        return None
     
     @abstractmethod
     def modify(self) -> bool:
@@ -58,7 +79,8 @@ class ModifierPlugin(ABC):
 class PluginManager:
     """Manages modifier plugins and their execution."""
     
-    def __init__(self, context: Any, logger: Optional[logging.Logger] = None):
+    def __init__(self, context: Any, logger: Optional[logging.Logger] = None, 
+                 backup_dir: Optional[Path] = None, enable_transactions: bool = True):
         self.ctx = context
         self.logger = logger or logging.getLogger("PluginManager")
         self._plugins: Dict[str, ModifierPlugin] = {}
@@ -67,6 +89,11 @@ class PluginManager:
             'post_modify': [],
             'on_error': [],
         }
+        self._enable_transactions = enable_transactions
+        self._transaction_manager: Optional[TransactionManager] = None
+        
+        if enable_transactions:
+            self._transaction_manager = TransactionManager(backup_dir)
     
     def register(self, plugin_class: Type[ModifierPlugin], **kwargs) -> 'PluginManager':
         """Register a plugin class.
@@ -82,6 +109,8 @@ class PluginManager:
         
         if not instance.name:
             instance.name = plugin_class.__name__
+        
+        instance.set_plugin_manager(self)
         
         self._plugins[instance.name] = instance
         self.logger.debug(f"Registered plugin: {instance}")
@@ -192,14 +221,25 @@ class PluginManager:
             
             # Execute plugin
             try:
-                success = plugin.modify()
-                results[plugin.name] = success
-                
-                if success:
-                    self.logger.info(f"Plugin {plugin.name} completed successfully")
+                if self._transaction_manager:
+                    with self._transaction_manager.transaction(plugin.name) as txn:
+                        success = plugin.modify()
+                        results[plugin.name] = success
+                        
+                        if success:
+                            self.logger.info(f"Plugin {plugin.name} completed successfully")
+                            self._transaction_manager.commit(plugin.name)
+                        else:
+                            self.logger.warning(f"Plugin {plugin.name} returned failure")
                 else:
-                    self.logger.warning(f"Plugin {plugin.name} returned failure")
+                    success = plugin.modify()
+                    results[plugin.name] = success
                     
+                    if success:
+                        self.logger.info(f"Plugin {plugin.name} completed successfully")
+                    else:
+                        self.logger.warning(f"Plugin {plugin.name} returned failure")
+                        
             except Exception as e:
                 self.logger.error(f"Plugin {plugin.name} failed: {e}")
                 results[plugin.name] = False
@@ -238,6 +278,39 @@ class PluginManager:
             self._hooks[event].remove(callback)
             return True
         return False
+    
+    def get_transaction_manager(self) -> Optional[TransactionManager]:
+        """Get the transaction manager for this plugin manager."""
+        return self._transaction_manager
+    
+    def record_modification(self, path: Path, action: str) -> Optional[Path]:
+        """Record a file modification for potential rollback.
+        
+        Args:
+            path: Path to the file being modified
+            action: 'modify', 'delete', or 'create'
+            
+        Returns:
+            Path to backup file if created, None otherwise
+        """
+        if self._transaction_manager:
+            return self._transaction_manager.record_modification(path, action)
+        return None
+    
+    def rollback_all(self) -> int:
+        """Rollback all transactions.
+        
+        Returns:
+            int: Total files rolled back
+        """
+        if self._transaction_manager:
+            return self._transaction_manager.rollback_all()
+        return 0
+    
+    def cleanup_backups(self):
+        """Clean up backup directory after successful execution."""
+        if self._transaction_manager:
+            self._transaction_manager.cleanup()
 
 
 class ModifierRegistry:
@@ -275,3 +348,46 @@ class ModifierRegistry:
         for name, plugin_class in cls._registry.items():
             if filter_prefix is None or name.startswith(filter_prefix):
                 manager.register(plugin_class)
+
+
+def create_backup_hook(file_paths: List[Path], action: str = 'modify'):
+    """Create a pre-modify hook that backs up specified files.
+    
+    Usage:
+        manager.add_hook('pre_modify', create_backup_hook([Path('system/app/App/App.apk')]))
+    
+    Args:
+        file_paths: List of file paths to back up
+        action: Action type ('modify', 'delete')
+        
+    Returns:
+        Hook callback function
+    """
+    def hook(plugin: ModifierPlugin):
+        for path in file_paths:
+            plugin.record_modification(path, action)
+    return hook
+
+
+def create_backup_hook_factory(get_paths_func: Callable[[], List[Path]], action: str = 'modify'):
+    """Create a pre-modify hook that backs up files determined at runtime.
+    
+    Usage:
+        # Files determined when plugin runs
+        manager.add_hook('pre_modify', create_backup_hook_factory(
+            lambda: [ctx.target_dir / 'system/app/App/App.apk']
+        ))
+    
+    Args:
+        get_paths_func: Callable that returns list of paths to back up
+        action: Action type ('modify', 'delete')
+        
+    Returns:
+        Hook callback function
+    """
+    def hook(plugin: ModifierPlugin):
+        paths = get_paths_func()
+        for path in paths:
+            if path.exists():
+                plugin.record_modification(path, action)
+    return hook

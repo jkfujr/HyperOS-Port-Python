@@ -30,6 +30,16 @@ from src.core.modifiers.plugin_system import (
     ModifierPlugin,
     PluginManager,
     ModifierRegistry,
+    create_backup_hook,
+    create_backup_hook_factory,
+)
+
+# Transaction system
+from src.core.modifiers.transaction import (
+    TransactionManager,
+    Transaction,
+    ModificationRecord,
+    RollbackContext,
 )
 
 # Built-in system plugins
@@ -68,6 +78,13 @@ __all__ = [
     'ModifierPlugin',
     'PluginManager',
     'ModifierRegistry',
+    'create_backup_hook',
+    'create_backup_hook_factory',
+    # Transaction system
+    'TransactionManager',
+    'Transaction',
+    'ModificationRecord',
+    'RollbackContext',
     # System plugins
     'WildBoostPlugin',
     'EULocalizationPlugin',
