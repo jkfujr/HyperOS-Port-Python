@@ -2,6 +2,7 @@ import argparse
 import logging
 import sys
 import shutil
+import concurrent.futures
 from pathlib import Path
 
 from src.core.modifiers import (
@@ -259,13 +260,22 @@ def main():
             
             logger.info("Saving report...")
             try:
-                monitor.save_report(args.report_path)
+                # Use threading timeout for cross-platform compatibility
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(monitor.save_report, args.report_path)
+                    future.result(timeout=30)  # 30 second timeout
+            except concurrent.futures.TimeoutError:
+                logger.error("Report save timed out after 30s, skipping...")
             except Exception as e:
                 logger.error(f"Failed to save report: {e}")
             
             logger.info("Printing report...")
             try:
-                monitor.print_report()
+                with concurrent.futures.ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(monitor.print_report)
+                    future.result(timeout=30)
+            except concurrent.futures.TimeoutError:
+                logger.error("Report print timed out after 30s, skipping...")
             except Exception as e:
                 logger.error(f"Failed to print report: {e}")
             logger.info(f"Monitoring report saved to: {args.report_path}")
