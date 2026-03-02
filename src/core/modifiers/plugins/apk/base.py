@@ -1,11 +1,13 @@
 """APK-specific modifier plugins.
 
-Extends the plugin system for APK-level modifications using APKEditor.
+Extends the plugin system for APK-level modifications.
+Uses PortingContext's built-in tools and shell runner.
 """
 from abc import abstractmethod
 from pathlib import Path
 from typing import Optional, List, Dict, Any
 import logging
+import shutil
 
 from src.core.modifiers.plugin_system import ModifierPlugin
 from src.utils.smalikit import SmaliKit
@@ -18,8 +20,9 @@ class ApkModifierPlugin(ModifierPlugin):
     Unlike system-level ModifierPlugin, this focuses on modifying
     specific APK files (decompile, patch, recompile).
     
-    Uses APKEditor.jar by default for better compatibility.
-    Can be configured to use apktool.jar instead.
+    Uses PortingContext's tools:
+    - ctx.tools.apkeditor_jar: Path to APKEditor.jar
+    - ctx.shell.run_java_jar(): Execute Java jar commands
     """
     
     # APK metadata
@@ -48,7 +51,7 @@ class ApkModifierPlugin(ModifierPlugin):
         self.logger.info(f"Modifying {self.apk_name}...")
         
         try:
-            # 1. Decompile APK
+            # 1. Decompile APK using context's tools
             work_dir = self._decompile_apk(self._apk_path)
             if not work_dir:
                 return False
@@ -58,7 +61,7 @@ class ApkModifierPlugin(ModifierPlugin):
             # 2. Apply patches
             self._apply_patches(work_dir)
             
-            # 3. Recompile APK
+            # 3. Recompile APK using context's tools
             output_apk = self._recompile_apk(work_dir, self._apk_path)
             
             if output_apk:
@@ -112,47 +115,27 @@ class ApkModifierPlugin(ModifierPlugin):
         
         return None
     
-    def _get_apk_editor_path(self) -> Path:
-        """Get path to APKEditor.jar."""
-        bin_dir = Path("bin").resolve()
-        
-        # Check if config specifies a custom editor
-        custom_editor = self.get_config("apk_editor_path")
-        if custom_editor:
-            custom_path = Path(custom_editor)
-            if custom_path.exists():
-                return custom_path
-        
-        # Default: APKEditor.jar in bin directory
-        return bin_dir / "APKEditor.jar"
-    
     def _decompile_apk(self, apk_path: Path) -> Optional[Path]:
-        """Decompile APK using APKEditor."""
-        from src.utils.shell import ShellRunner
+        """Decompile APK using APKEditor via context's shell runner."""
+        # Use PortingContext's tools
+        apkeditor_jar = self.ctx.tools.apkeditor_jar
         
-        shell = ShellRunner()
-        apk_editor = self._get_apk_editor_path()
-        
-        if not apk_editor.exists():
-            self.logger.error(f"APK Editor not found: {apk_editor}")
+        if not apkeditor_jar.exists():
+            self.logger.error(f"APKEditor not found: {apkeditor_jar}")
             return None
         
-        # Create work directory
+        # Create work directory in temp folder
         work_dir = Path("temp") / f"apk_{self.apk_name.lower()}"
         if work_dir.exists():
-            import shutil
             shutil.rmtree(work_dir)
         work_dir.mkdir(parents=True, exist_ok=True)
         
         try:
-            # Decompile using APKEditor: java -jar APKEditor.jar d -i input.apk -o output
-            cmd = [
-                "java", "-jar", str(apk_editor),
-                "d",  # decode
-                "-i", str(apk_path),
-                "-o", str(work_dir)
-            ]
-            shell.run(cmd)
+            # Use context's shell runner: java -jar APKEditor.jar d -i input.apk -o output
+            self.ctx.shell.run_java_jar(
+                apkeditor_jar,
+                ["d", "-f", "-i", str(apk_path), "-o", str(work_dir)]
+            )
             
             self.logger.debug(f"Decompiled {apk_path.name} to {work_dir}")
             return work_dir
@@ -161,28 +144,22 @@ class ApkModifierPlugin(ModifierPlugin):
             return None
     
     def _recompile_apk(self, work_dir: Path, original_apk: Path) -> Optional[Path]:
-        """Recompile APK using APKEditor."""
-        from src.utils.shell import ShellRunner
-        import shutil
+        """Recompile APK using APKEditor via context's shell runner."""
+        # Use PortingContext's tools
+        apkeditor_jar = self.ctx.tools.apkeditor_jar
         
-        shell = ShellRunner()
-        apk_editor = self._get_apk_editor_path()
-        
-        if not apk_editor.exists():
-            self.logger.error(f"APK Editor not found: {apk_editor}")
+        if not apkeditor_jar.exists():
+            self.logger.error(f"APKEditor not found: {apkeditor_jar}")
             return None
         
         temp_apk = work_dir.parent / f"{self.apk_name}_recompiled.apk"
         
         try:
-            # Recompile using APKEditor: java -jar APKEditor.jar b -i input_dir -o output.apk
-            cmd = [
-                "java", "-jar", str(apk_editor),
-                "b",  # build
-                "-i", str(work_dir),
-                "-o", str(temp_apk)
-            ]
-            shell.run(cmd)
+            # Use context's shell runner: java -jar APKEditor.jar b -i input_dir -o output.apk
+            self.ctx.shell.run_java_jar(
+                apkeditor_jar,
+                ["b", "-f", "-i", str(work_dir), "-o", str(temp_apk)]
+            )
             
             # Replace original
             shutil.copy2(temp_apk, original_apk)
@@ -217,6 +194,22 @@ class ApkModifierPlugin(ModifierPlugin):
         """Modify XML file."""
         # Implementation depends on XmlUtils capabilities
         self.logger.debug(f"XML modify: {xml_path} @ {xpath} = {value}")
+    
+    def _find_file(self, work_dir: Path, filename: str) -> Optional[Path]:
+        """Find a file in work directory."""
+        for f in work_dir.rglob(filename):
+            return f
+        return None
+    
+    def _find_file_with_content(self, work_dir: Path, content: str) -> Optional[Path]:
+        """Find a file containing specific content."""
+        for f in work_dir.rglob("*.smali"):
+            try:
+                if content in f.read_text(encoding='utf-8', errors='ignore'):
+                    return f
+            except:
+                pass
+        return None
 
 
 class ApkModifierRegistry:
