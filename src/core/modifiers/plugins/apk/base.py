@@ -1,6 +1,6 @@
 """APK-specific modifier plugins.
 
-Extends the plugin system for APK-level modifications.
+Extends the plugin system for APK-level modifications using APKEditor.
 """
 from abc import abstractmethod
 from pathlib import Path
@@ -17,6 +17,9 @@ class ApkModifierPlugin(ModifierPlugin):
     
     Unlike system-level ModifierPlugin, this focuses on modifying
     specific APK files (decompile, patch, recompile).
+    
+    Uses APKEditor.jar by default for better compatibility.
+    Can be configured to use apktool.jar instead.
     """
     
     # APK metadata
@@ -89,6 +92,7 @@ class ApkModifierPlugin(ModifierPlugin):
             f"product/priv-app/{self.apk_name}/{self.apk_name}.apk",
             f"system_ext/app/{self.apk_name}/{self.apk_name}.apk",
             f"system_ext/priv-app/{self.apk_name}/{self.apk_name}.apk",
+            f"product/overlay/{self.apk_name}.apk",  # For overlay APKs
         ]
         
         # Add custom paths if specified
@@ -108,46 +112,81 @@ class ApkModifierPlugin(ModifierPlugin):
         
         return None
     
+    def _get_apk_editor_path(self) -> Path:
+        """Get path to APKEditor.jar."""
+        bin_dir = Path("bin").resolve()
+        
+        # Check if config specifies a custom editor
+        custom_editor = self.get_config("apk_editor_path")
+        if custom_editor:
+            custom_path = Path(custom_editor)
+            if custom_path.exists():
+                return custom_path
+        
+        # Default: APKEditor.jar in bin directory
+        return bin_dir / "APKEditor.jar"
+    
     def _decompile_apk(self, apk_path: Path) -> Optional[Path]:
-        """Decompile APK using apktool."""
+        """Decompile APK using APKEditor."""
         from src.utils.shell import ShellRunner
         
         shell = ShellRunner()
-        bin_dir = Path("bin").resolve()
-        apktool = bin_dir / "apktool" / "apktool"
+        apk_editor = self._get_apk_editor_path()
+        
+        if not apk_editor.exists():
+            self.logger.error(f"APK Editor not found: {apk_editor}")
+            return None
         
         # Create work directory
         work_dir = Path("temp") / f"apk_{self.apk_name.lower()}"
+        if work_dir.exists():
+            import shutil
+            shutil.rmtree(work_dir)
         work_dir.mkdir(parents=True, exist_ok=True)
         
         try:
-            # Decompile
-            cmd = [str(apktool), "d", "-f", str(apk_path), "-o", str(work_dir)]
+            # Decompile using APKEditor: java -jar APKEditor.jar d -i input.apk -o output
+            cmd = [
+                "java", "-jar", str(apk_editor),
+                "d",  # decode
+                "-i", str(apk_path),
+                "-o", str(work_dir)
+            ]
             shell.run(cmd)
             
+            self.logger.debug(f"Decompiled {apk_path.name} to {work_dir}")
             return work_dir
         except Exception as e:
             self.logger.error(f"Failed to decompile {apk_path}: {e}")
             return None
     
     def _recompile_apk(self, work_dir: Path, original_apk: Path) -> Optional[Path]:
-        """Recompile APK using apktool."""
+        """Recompile APK using APKEditor."""
         from src.utils.shell import ShellRunner
         import shutil
         
         shell = ShellRunner()
-        bin_dir = Path("bin").resolve()
-        apktool = bin_dir / "apktool" / "apktool"
+        apk_editor = self._get_apk_editor_path()
+        
+        if not apk_editor.exists():
+            self.logger.error(f"APK Editor not found: {apk_editor}")
+            return None
         
         temp_apk = work_dir.parent / f"{self.apk_name}_recompiled.apk"
         
         try:
-            # Recompile
-            cmd = [str(apktool), "b", "-f", str(work_dir), "-o", str(temp_apk)]
+            # Recompile using APKEditor: java -jar APKEditor.jar b -i input_dir -o output.apk
+            cmd = [
+                "java", "-jar", str(apk_editor),
+                "b",  # build
+                "-i", str(work_dir),
+                "-o", str(temp_apk)
+            ]
             shell.run(cmd)
             
             # Replace original
             shutil.copy2(temp_apk, original_apk)
+            self.logger.debug(f"Recompiled APK saved to {original_apk}")
             
             # Cleanup
             temp_apk.unlink()
@@ -166,11 +205,12 @@ class ApkModifierPlugin(ModifierPlugin):
     
     def smali_seek_and_replace(self, work_dir: Path, keyword: str, return_value: str, return_type: str = "Z"):
         """Seek keyword and replace return value."""
+        remake_code = f".locals 1\n    {return_value}\n    return v0"
         self.smali_patch(
             work_dir=work_dir,
             seek_keyword=keyword,
             return_type=return_type,
-            remake=f".locals 1\n    {return_value}\n    return v0"
+            remake=remake_code
         )
     
     def xml_modify(self, xml_path: Path, xpath: str, value: Any):
