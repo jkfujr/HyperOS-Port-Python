@@ -70,4 +70,41 @@ class SettingsModifier(ApkModifierPlugin):
             regex_replace=(regex, repl)
         )
         
-        # 3. XML resource injection would go here
+        # 3. XML patches for notification icons
+        self._apply_notification_icon_xml(work_dir)
+    
+    def _apply_notification_icon_xml(self, work_dir: Path):
+        """Apply XML patches for notification icon counts (5 and 7)."""
+        self.logger.info("Applying notification icon XML patches...")
+        
+        res_dir = self.xml.get_res_dir(work_dir)
+        
+        # Add Multi-language Strings
+        # English
+        self.xml.add_string(res_dir, "display_notification_icon_5", "%d icons")
+        self.xml.add_string(res_dir, "display_notification_icon_7", "%d icons")
+        
+        # Chinese
+        self.xml.add_string(res_dir, "display_notification_icon_5", "显示%d个", "zh-rCN")
+        self.xml.add_string(res_dir, "display_notification_icon_7", "显示%d个", "zh-rCN")
+        
+        # Add to entries array
+        entries_to_add = [
+            "@string/display_notification_icon_5",
+            "@string/display_notification_icon_7"
+        ]
+        self.xml.add_array_item(
+            res_dir,
+            array_name="notification_icon_counts_entries",
+            items=entries_to_add
+        )
+        
+        # Add to values array
+        values_to_add = ["5", "7"]
+        self.xml.add_array_item(
+            res_dir,
+            array_name="notification_icon_counts_values",
+            items=values_to_add
+        )
+        
+        self.logger.info("Notification icon XML patches applied")
