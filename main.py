@@ -39,7 +39,7 @@ def parse_args():
         "--stock", required=True, help="Path to Stock ROM (zip/payload/dir)"
     )
     parser.add_argument(
-        "--port", required=True, help="Path to Port ROM (zip/payload/dir)"
+        "--port", required=False, help="Path to Port ROM (zip/payload/dir). If omitted, runs in Official Modification mode."
     )
     parser.add_argument(
         "--ksu",
@@ -105,11 +105,19 @@ def main():
     log_level = logging.DEBUG if args.debug else logging.INFO
     setup_logging(log_level)
 
+    is_official_modify = args.port is None
+    if is_official_modify:
+        logger.info("No Port ROM provided. Entering Official Modification mode.")
+        args.port = args.stock
+
     logger.info("=" * 70)
     logger.info("HyperOS Porting Tool v2.0")
     logger.info("=" * 70)
     logger.info(f"Stock ROM: {args.stock}")
-    logger.info(f"Port ROM:  {args.port}")
+    if is_official_modify:
+        logger.info("Mode:      Official Modification")
+    else:
+        logger.info(f"Port ROM:  {args.port}")
     logger.info(f"KSU:       {args.ksu}")
     logger.info(f"Work Dir:  {args.work_dir}")
     if args.phases:
@@ -128,7 +136,11 @@ def main():
         logger.info("Downloading Stock ROM...")
         args.stock = str(downloader.download(args.stock))
 
-    if args.port.startswith("http"):
+    # Re-evaluate port if it was set from stock
+    if is_official_modify:
+        args.port = args.stock
+
+    if not is_official_modify and args.port.startswith("http"):
         logger.info("Downloading Port ROM...")
         args.port = str(downloader.download(args.port))
 
@@ -150,15 +162,19 @@ def main():
         # Execute Phase 1: Image Extraction
         logger.info(">>> Phase 1: Extraction")
         stock = RomPackage(args.stock, stock_work_dir, label="Stock")
-        port = RomPackage(args.port, port_work_dir, label="Port")
-
-        port_partitions = ["system", "product", "system_ext", "mi_ext"]
         stock.extract_images()
-        port.extract_images(port_partitions)
+
+        if is_official_modify:
+            # In official modify mode, port is the same as stock
+            port = stock
+        else:
+            port = RomPackage(args.port, port_work_dir, label="Port")
+            port_partitions = ["system", "product", "system_ext", "mi_ext"]
+            port.extract_images(port_partitions)
 
         # Execute Phase 2: Context Initialization
         logger.info(">>> Phase 2: Initialization")
-        ctx = PortingContext(stock, port, target_work_dir)
+        ctx = PortingContext(stock, port, target_work_dir, is_official_modify=is_official_modify)
 
         # Set dynamic attributes
         ctx.eu_bundle = args.eu_bundle  # type: ignore

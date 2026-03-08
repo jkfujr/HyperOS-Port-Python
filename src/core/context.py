@@ -21,10 +21,11 @@ class PortingContext:
     """Context class for managing ROM porting operations."""
 
     def __init__(
-        self, stock_rom: RomPackage, port_rom: RomPackage, target_work_dir: Union[str, Path]
+        self, stock_rom: RomPackage, port_rom: RomPackage, target_work_dir: Union[str, Path], is_official_modify: bool = False
     ) -> None:
         self.stock: RomPackage = stock_rom
         self.port: RomPackage = port_rom
+        self.is_official_modify: bool = is_official_modify
         self.project_root: Path = Path(".").resolve()  # Project root
         self.bin_root: Path = self.project_root / "bin"
         self.target_dir: Path = Path(target_work_dir).resolve()  # build/target/
@@ -272,51 +273,55 @@ class PortingContext:
         ) or self.port.get_prop("ro.build.version.incremental", "")
         port_mios_version_inc: str = port_mios_version_inc_opt or ""
 
-        # Port device codename logic (e.g. UNBCNXM -> U)
-        port_device_code_segment: str
-        try:
-            port_parts: List[str] = port_mios_version_inc.split(".")
-            if len(port_parts) >= 5:
-                port_device_code_segment = port_parts[4]  # e.g. UNBCNXM
-            else:
-                port_device_code_segment = "UNKNOWN"
-        except Exception:
-            port_device_code_segment = "UNKNOWN"
-
-        # Calculate target prefix (U/V/W)
-        target_prefix: str = "U"  # Default 14
-        if self.port_android_version == "15":
-            target_prefix = "V"
-        elif self.port_android_version == "16":
-            target_prefix = "W"
-
-        # Construct new Base Device Code Segment
-        # Logic: Take 5th segment of stock_rom_version_inc, remove first char, add new prefix
-        # e.g. Base: 1.0.5.0.UMCCNXM -> MCC -> V + MCC = VMCC (if A15)
-        new_base_code_segment: str = port_device_code_segment  # Default: no change
-
-        if stock_rom_version_inc:
-            try:
-                base_parts: List[str] = stock_rom_version_inc.split(".")
-                if len(base_parts) >= 5:
-                    base_segment_raw: str = base_parts[4]  # UMCCNXM
-                    # cut -c 2- (remove first char)
-                    suffix: str = base_segment_raw[1:]
-                    new_base_code_segment = f"{target_prefix}{suffix}"
-            except Exception:
-                pass
-
-        # Generate final version
-        if "DEV" in port_mios_version_inc:
-            self.logger.warning("Dev ROM detected, skipping codename replacement.")
-            self.target_rom_version: str = port_mios_version_inc
+        if self.is_official_modify:
+            self.logger.info("Official Modification mode: Skipping version replacement.")
+            self.target_rom_version = port_mios_version_inc
         else:
-            if port_device_code_segment != "UNKNOWN":
-                self.target_rom_version = port_mios_version_inc.replace(
-                    port_device_code_segment, new_base_code_segment
-                )
+            # Port device codename logic (e.g. UNBCNXM -> U)
+            port_device_code_segment: str
+            try:
+                port_parts: List[str] = port_mios_version_inc.split(".")
+                if len(port_parts) >= 5:
+                    port_device_code_segment = port_parts[4]  # e.g. UNBCNXM
+                else:
+                    port_device_code_segment = "UNKNOWN"
+            except Exception:
+                port_device_code_segment = "UNKNOWN"
+
+            # Calculate target prefix (U/V/W)
+            target_prefix: str = "U"  # Default 14
+            if self.port_android_version == "15":
+                target_prefix = "V"
+            elif self.port_android_version == "16":
+                target_prefix = "W"
+
+            # Construct new Base Device Code Segment
+            # Logic: Take 5th segment of stock_rom_version_inc, remove first char, add new prefix
+            # e.g. Base: 1.0.5.0.UMCCNXM -> MCC -> V + MCC = VMCC (if A15)
+            new_base_code_segment: str = port_device_code_segment  # Default: no change
+
+            if stock_rom_version_inc:
+                try:
+                    base_parts: List[str] = stock_rom_version_inc.split(".")
+                    if len(base_parts) >= 5:
+                        base_segment_raw: str = base_parts[4]  # UMCCNXM
+                        # cut -c 2- (remove first char)
+                        suffix: str = base_segment_raw[1:]
+                        new_base_code_segment = f"{target_prefix}{suffix}"
+                except Exception:
+                    pass
+
+            # Generate final version
+            if "DEV" in port_mios_version_inc:
+                self.logger.warning("Dev ROM detected, skipping codename replacement.")
+                self.target_rom_version: str = port_mios_version_inc
             else:
-                self.target_rom_version = port_mios_version_inc
+                if port_device_code_segment != "UNKNOWN":
+                    self.target_rom_version = port_mios_version_inc.replace(
+                        port_device_code_segment, new_base_code_segment
+                    )
+                else:
+                    self.target_rom_version = port_mios_version_inc
 
         self.logger.info(
             f"ROM Version: Stock=[{stock_rom_version_inc}], Target=[{self.target_rom_version}]"
