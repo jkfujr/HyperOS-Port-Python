@@ -9,5 +9,8 @@
     },
     "ksu": {
         "enable": false
+    },
+    "overrides": {
+        "skip_common_on_official": true
     }
 }

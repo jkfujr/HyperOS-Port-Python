@@ -49,6 +49,14 @@ class RomModifier(BaseModifier):
 
     def _apply_common_overrides(self):
         """Apply common overrides based on conditions (e.g., OS version)."""
+        # Check config to decide if common overrides should be skipped on official mod
+        device_config = getattr(self.ctx, "device_config", {})
+        skip_on_official = device_config.get("overrides", {}).get("skip_common_on_official", True)
+
+        if self.ctx.is_official_modify and skip_on_official:
+            self.logger.info("Official Modification mode detected: Skipping common (devices/common) overrides as per configuration.")
+            return
+
         os_version_name = self.ctx.port.get_prop("ro.mi.os.version.name", "")
         self.logger.info(f"Checking for common overrides. Port OS Version: {os_version_name}")
         
