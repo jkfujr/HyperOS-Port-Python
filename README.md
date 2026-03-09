@@ -15,6 +15,7 @@ A powerful, automated Python-based tool for porting HyperOS ROMs across Xiaomi/R
 - 🛠️ **Fully Automated**: End-to-end porting process from stock/port ZIPs to flashable output.
 - 💉 **Smart Patching**: Automated modification of firmware, system, framework, and ROM properties.
 - 🧬 **GKI Support**: Intelligent KernelSU injection for GKI 2.0 (5.10+) and standard GKI devices.
+- 🔓 **Android 16 Ready**: Specialized `vendor_boot` fstab patching for KMI 6.12 to prevent fastboot bootloops.
 - 🚀 **Wild Boost**: Auto-installation of performance modules with kernel version detection.
 - 🧩 **Modular Configuration**: Toggle features (AOD, AI Engine, etc.) via simple JSON files.
 - 🌏 **EU Localization**: Restore China-exclusive features (NFC, XiaoAi) to Global/EU bases.
@@ -38,6 +39,7 @@ A powerful, automated Python-based tool for porting HyperOS ROMs across Xiaomi/R
 - **Base (Stock):**
   - Xiaomi 13 (HyperOS 2.0/3.0)
   - Xiaomi 12S (HyperOS 3.0 / A15)
+  - Xiaomi 14 Ultra (HyperOS 3.0 / A16 / KMI 6.12)
 - **Port Sources:**
   - Xiaomi 14 / 15 / 17
   - Redmi K90 / K90 Pro
@@ -229,6 +231,8 @@ HyperOS-Port-Python/
 │   │   └── props.py           # Property management
 │   ├── modules/               # APK-level modification modules
 │   └── utils/                 # Shell and file utilities
+│       ├── lpunpack.py        # Python implementation of lpunpack for compatibility
+│       └── ...
 ├── devices/                   # Device-specific configs & overlays
 ├── otatools/                  # Android OTA binaries (bin, lib64)
 ├── tests/                     # Unit tests

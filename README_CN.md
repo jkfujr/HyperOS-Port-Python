@@ -15,6 +15,7 @@
 - 🛠️ **全自动化**: 从底包/移植包 ZIP 到最终可刷入 ZIP 的端到端移植流程。
 - 💉 **智能修补**: 自动修改固件、系统、框架和 ROM 属性。
 - 🧬 **GKI 支持**: 针对 GKI 2.0 (5.10+) 及标准 GKI 设备，提供智能 KernelSU 注入。
+- 🔓 **Android 16 支持**: 针对 KMI 6.12 提供专用的 `vendor_boot` fstab 修补，跳过标准 VBMETA 以防止 Fastboot 卡死。
 - 🚀 **Wild Boost**: 自动安装性能增强模块，支持内核版本检测。
 - 🧩 **模块化配置**: 通过简单的 JSON 文件开启/关闭功能（AOD、AI 引擎等）。
 - 🌏 **EU 本地化**: 为 Global/EU 底包恢复国内特有功能（NFC、小米钱包、小爱同学）。
@@ -37,6 +38,7 @@
 - **底包 (Stock):**
   - 小米 13 (HyperOS 2.0/3.0)
   - 小米 12S (HyperOS 3.0 / A15)
+  - 小米 14 Ultra (HyperOS 3.0 / A16 / KMI 6.12)
 - **移植来源:**
   - 小米 14 / 15 / 17
   - 红米 K90 / K90 Pro
@@ -228,6 +230,8 @@ HyperOS-Port-Python/
 │   │   └── props.py           # 属性管理
 │   ├── modules/               # APK 级别修改模块
 │   └── utils/                 # Shell 和文件工具
+│       ├── lpunpack.py        # lpunpack 的 Python 实现，增强兼容性
+│       └── ...
 ├── devices/                   # 特定机型的配置和 overlay
 ├── otatools/                  # Android OTA 二进制文件 (bin, lib64)
 ├── tests/                     # 单元测试
