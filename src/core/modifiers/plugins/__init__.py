@@ -400,29 +400,41 @@ class FeatureUnlockPlugin(ModifierPlugin):
         
         # Apply to partitions
         for partition, props in props_map.items():
-            if partition == "vendor":
-                prop_file = self.ctx.target_dir / "vendor/build.prop"
-            elif partition == "product":
-                prop_file = self.ctx.target_dir / "product/etc/build.prop"
-            else:
+            prop_file = self.ctx.get_target_prop_file(partition)
+            
+            if not prop_file or not prop_file.exists():
+                self.logger.debug(f"build.prop not found for partition: {partition}")
                 continue
             
-            if not prop_file.exists():
-                continue
+            self.logger.info(f"Applying build_props to {partition} ({prop_file.relative_to(self.ctx.target_dir)})")
             
             content = prop_file.read_text(encoding='utf-8', errors='ignore')
             lines = content.splitlines()
+            
+            # Map existing keys to their line index
+            prop_indices = {}
+            for i, line in enumerate(lines):
+                if "=" in line and not line.strip().startswith("#"):
+                    key = line.split("=")[0].strip()
+                    prop_indices[key] = i
+            
+            modified = False
             new_lines = list(lines)
             
-            existing_keys = {line.split("=")[0].strip() 
-                           for line in lines 
-                           if "=" in line and not line.strip().startswith("#")}
-            
             for key, value in props.items():
-                if key not in existing_keys:
-                    new_lines.append(f"{key}={value}")
+                new_entry = f"{key}={value}"
+                if key in prop_indices:
+                    idx = prop_indices[key]
+                    if new_lines[idx] != new_entry:
+                        self.logger.debug(f"  Updating: {new_lines[idx]} -> {new_entry}")
+                        new_lines[idx] = new_entry
+                        modified = True
+                else:
+                    self.logger.debug(f"  Adding: {new_entry}")
+                    new_lines.append(new_entry)
+                    modified = True
             
-            if len(new_lines) > len(lines):
+            if modified:
                 prop_file.write_text("\n".join(new_lines) + "\n", encoding='utf-8')
     
     def _apply_eu_localization_props(self):
