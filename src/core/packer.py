@@ -447,7 +447,8 @@ class Repacker:
                         zf.write(file_path, arcname)
 
         md5: str = hashlib.md5(open(final_zip_path, "rb").read()).hexdigest()[:10]
-        renamed_zip_name: str = f"{self.ctx.stock_rom_code}_Hybrid_{self.ctx.target_rom_version}_{self.ctx.security_patch}_{md5}_{timestamp}.zip"
+        prefix = "xiaomi.eu_" if getattr(self.ctx, "is_port_eu_rom", False) else ""
+        renamed_zip_name: str = f"{prefix}{self.ctx.stock_rom_code}_Hybrid_{self.ctx.target_rom_version}_{self.ctx.security_patch}_{md5}_{timestamp}.zip"
         renamed_zip_path: Path = self.out_dir / renamed_zip_name
         final_zip_path.rename(renamed_zip_path)
         self.logger.info(f"Hybrid ROM generated: {renamed_zip_path}")
@@ -705,9 +706,10 @@ class Repacker:
                 env=env,
             )
             md5: str = hashlib.md5(open(output_zip, "rb").read()).hexdigest()[:10]
+            prefix = "xiaomi.eu_" if getattr(self.ctx, "is_port_eu_rom", False) else ""
             final_path: Path = (
                 self.out_dir
-                / f"{self.ctx.stock_rom_code}-ota_full-{self.ctx.target_rom_version}-{self.ctx.security_patch}-{timestamp}-{md5}-{self.ctx.port_android_version}.zip"
+                / f"{prefix}{self.ctx.stock_rom_code}-ota_full-{self.ctx.target_rom_version}-{self.ctx.security_patch}-{timestamp}-{md5}-{self.ctx.port_android_version}.zip"
             )
             output_zip.rename(final_path)
             self.logger.info(f"Final OTA Package: {final_path}")
