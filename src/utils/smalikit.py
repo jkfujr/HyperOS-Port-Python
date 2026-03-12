@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-import os
-import sys
-import re
 import argparse
 import logging
+import os
+import re
+import sys
 
 
 class SmaliArgs:
@@ -79,8 +79,7 @@ class SmaliKit:
         self.logger.info(f"{color}{message}{Colors.ENDC}")
 
     def apply_modifications(self, original_body):
-        """
-        Core modification logic: Input original Body, return (new Body, is_modified)
+        """Core modification logic: Input original Body, return (new Body, is_modified)
         """
         new_body = original_body
         is_modified = False
@@ -188,7 +187,7 @@ class SmaliKit:
             )
 
             if self.args.delete_method:
-                self.log(f"  -> Applying -dm (Delete Method)...", Colors.FAIL)
+                self.log("  -> Applying -dm (Delete Method)...", Colors.FAIL)
                 replacements.append((full_block, ""))
                 file_modified = True
                 continue
@@ -224,7 +223,7 @@ class SmaliKit:
 
     def patch_file(self, file_path):
         try:
-            with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+            with open(file_path, encoding="utf-8", errors="ignore") as f:
                 content = f.read()
 
             if self.target_method and self.target_method not in content and not self.seek_keyword:

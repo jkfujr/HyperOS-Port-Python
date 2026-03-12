@@ -6,9 +6,9 @@ This module integrates monitoring with the existing system.
 from pathlib import Path
 from typing import Optional
 
-from src.core.monitoring import Monitor, get_monitor
-from src.core.monitoring.console_ui import ConsoleReporter
 from src.core.context import PortingContext
+from src.core.monitoring import get_monitor
+from src.core.monitoring.console_ui import ConsoleReporter
 
 
 class MonitoredPortingWorkflow:
@@ -29,14 +29,14 @@ class MonitoredPortingWorkflow:
     def run(self) -> bool:
         """Execute the full porting workflow with monitoring."""
         from src.core.modifiers import (
-            SystemModifier,
-            FrameworkModifier,
-            FirmwareModifier,
-            RomModifier,
             ApkModifier,
+            FirmwareModifier,
+            FrameworkModifier,
+            RomModifier,
+            SystemModifier,
         )
-        from src.core.props import PropertyModifier
         from src.core.packer import Repacker
+        from src.core.props import PropertyModifier
 
         self.monitor.start()
 

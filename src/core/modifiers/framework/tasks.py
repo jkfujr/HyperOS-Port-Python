@@ -9,10 +9,10 @@ from typing import TYPE_CHECKING
 
 from src.core.modifiers.framework.base import FrameworkModifierBase
 from src.core.modifiers.framework.patches import (
-    RETRUN_TRUE,
-    RETRUN_FALSE,
     INVOKE_TRUE,
     MY_PLATFORM_KEY,
+    RETRUN_FALSE,
+    RETRUN_TRUE,
 )
 
 if TYPE_CHECKING:
@@ -330,8 +330,6 @@ class FrameworkTasks(FrameworkModifierBase):
 
     def _inject_hook_helper_methods(self, work_dir: Path) -> None:
         """Inject HookHelper additional methods (AutoCopy)."""
-        import re
-
         hook_helper = self._find_file(work_dir, "HookHelper.smali")
         if not hook_helper:
             self.logger.warning("HookHelper.smali not found, creating new one...")

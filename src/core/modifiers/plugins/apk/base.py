@@ -4,16 +4,16 @@ Extends the plugin system for APK-level modifications.
 Uses PortingContext's built-in tools and shell runner.
 """
 
-from abc import abstractmethod
-from pathlib import Path
-from typing import Optional, List, Dict, Any, Callable
 import logging
+import re
 import shutil
 import sys
-import re
+from abc import abstractmethod
+from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from src.core.modifiers.plugin_system import ModifierPlugin
-from src.utils.smalikit import SmaliKit, SmaliArgs
+from src.utils.smalikit import SmaliArgs, SmaliKit
 from src.utils.xml_utils import XmlUtils
 
 
@@ -75,9 +75,7 @@ class ApkModifierPlugin(ModifierPlugin):
 
         # Also filter lines that are obviously just file processing paths
         if not is_noise:
-            if re.search(r"\[(DECOMPILE|BUILD|ENCODE)\]\s+res/", clean_line):
-                is_noise = True
-            elif re.search(r"\[(DECOMPILE|BUILD|ENCODE)\]\s+smali/", clean_line):
+            if re.search(r"\[(DECOMPILE|BUILD|ENCODE)\]\s+res/", clean_line) or re.search(r"\[(DECOMPILE|BUILD|ENCODE)\]\s+smali/", clean_line):
                 is_noise = True
 
         if is_noise and self.quiet:
@@ -342,12 +340,6 @@ class ApkModifierRegistry:
     def auto_discover(cls, manager):
         """Auto-discover and register all APK modifiers."""
         # Import all APK modifiers to ensure they register
-        from src.core.modifiers.plugins.apk import installer
-        from src.core.modifiers.plugins.apk import securitycenter
-        from src.core.modifiers.plugins.apk import settings
-        from src.core.modifiers.plugins.apk import joyose
-        from src.core.modifiers.plugins.apk import powerkeeper
-        from src.core.modifiers.plugins.apk import devices_overlay
 
         # Plugins auto-register via @ApkModifierRegistry.register decorator
         # Now register them with the plugin manager
@@ -358,6 +350,5 @@ class ApkModifierRegistry:
 
     @classmethod
     def logger(cls):
-        import logging
 
         return logging.getLogger("ApkModifierRegistry")

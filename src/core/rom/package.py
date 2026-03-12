@@ -9,8 +9,8 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Union
 
 from src.utils.shell import ShellRunner
 
+from .config_generator import ContextExtractor, FsConfigGenerator
 from .constants import ANDROID_LOGICAL_PARTITIONS, RomType
-from .extractors import extract_local
 from .utils import compute_file_hash, load_single_prop_file, sort_prop_priority
 
 if TYPE_CHECKING:
@@ -34,9 +34,9 @@ class RomPackage:
             label: Label for logging purposes.
         """
         self.props: Dict[str, str] = {}
-        self.prop_history: Dict[
-            str, List[Tuple[str, str]]
-        ] = {}  # Tracks property history: {key: [(file, value), ...]}
+        self.prop_history: Dict[str, List[Tuple[str, str]]] = (
+            {}
+        )  # Tracks property history: {key: [(file, value), ...]}
         self.path: Path = Path(file_path).resolve()
         self.work_dir: Path = Path(work_dir).resolve()
         self.label: str = label
@@ -89,8 +89,7 @@ class RomPackage:
         self.logger.info(f"[{self.label}] Detected Type: {self.rom_type.name}")
 
     def extract_images(self, partitions: Optional[List[str]] = None) -> None:
-        """
-        Level 1 Extraction: Convert Zip/Payload to Img.
+        """Level 1 Extraction: Convert Zip/Payload to Img.
 
         Args:
             partitions:
@@ -116,7 +115,7 @@ class RomPackage:
 
         if source_hash_path.exists():
             try:
-                with open(source_hash_path, "r") as f:
+                with open(source_hash_path) as f:
                     saved_hash = f.read().strip()
                 source_changed = saved_hash != current_source_hash
             except Exception:
@@ -148,8 +147,12 @@ class RomPackage:
             # Enhanced check: ensure at least 'system.img' (or 'system_a.img') exists
             # Also for FASTBOOT, if super.img still exists, it means extraction was incomplete.
             has_images = any(self.images_dir.iterdir())
-            has_system = (self.images_dir / "system.img").exists() or (self.images_dir / "system_a.img").exists()
-            incomplete_fastboot = self.rom_type == RomType.FASTBOOT and (self.images_dir / "super.img").exists()
+            has_system = (self.images_dir / "system.img").exists() or (
+                self.images_dir / "system_a.img"
+            ).exists()
+            incomplete_fastboot = (
+                self.rom_type == RomType.FASTBOOT and (self.images_dir / "super.img").exists()
+            )
 
             if has_images and has_system and not incomplete_fastboot:
                 self.logger.info(f"[{self.label}] Using cached images from previous extraction.")
@@ -257,10 +260,10 @@ class RomPackage:
                 str(self.extracted_dir),
             ]
             self.shell.run(cmd, capture_output=True)
-            
+
             # Since img_path might still be system_a.img if normalization didn't happen,
             # we handle the directory rename just in case
-            extracted_name = img_path.stem # e.g., 'system' or 'system_a'
+            extracted_name = img_path.stem  # e.g., 'system' or 'system_a'
             if extracted_name != part_name:
                 actual_dir = self.extracted_dir / extracted_name
                 if actual_dir.exists() and actual_dir.is_dir():
@@ -277,21 +280,35 @@ class RomPackage:
         # Pattern search to handle both 'system_fs_config' and 'system_a_fs_config'
         search_pattern = img_path.stem
 
-        possible_contexts = list(self.extracted_dir.glob(f"config/{search_pattern}_file_contexts")) + \
-                            list(target_dir.parent.glob(f"{search_pattern}_file_contexts")) + \
-                            list(target_dir.glob("*_file_contexts"))
-        
-        possible_fs_config = list(self.extracted_dir.glob(f"config/{search_pattern}_fs_config")) + \
-                             list(target_dir.parent.glob(f"{search_pattern}_fs_config")) + \
-                             list(target_dir.glob("*_fs_config"))
+        possible_contexts = (
+            list(self.extracted_dir.glob(f"config/{search_pattern}_file_contexts"))
+            + list(target_dir.parent.glob(f"{search_pattern}_file_contexts"))
+            + list(target_dir.glob("*_file_contexts"))
+        )
+
+        possible_fs_config = (
+            list(self.extracted_dir.glob(f"config/{search_pattern}_fs_config"))
+            + list(target_dir.parent.glob(f"{search_pattern}_fs_config"))
+            + list(target_dir.glob("*_fs_config"))
+        )
 
         if possible_contexts:
             target_context = self.config_dir / f"{part_name}_file_contexts"
             shutil.move(possible_contexts[0], target_context)
-            
+        else:
+            # Try to extract/find inside the image
+            target_context = self.config_dir / f"{part_name}_file_contexts"
+            extractor = ContextExtractor(self.logger)
+            extractor.extract(target_dir, target_context, part_name)
+
         if possible_fs_config:
             target_fs = self.config_dir / f"{part_name}_fs_config"
             shutil.move(possible_fs_config[0], target_fs)
+        else:
+            # Generate fs_config
+            target_fs = self.config_dir / f"{part_name}_fs_config"
+            generator = FsConfigGenerator(self.logger)
+            generator.generate(target_dir, target_fs)
 
         return target_dir
 

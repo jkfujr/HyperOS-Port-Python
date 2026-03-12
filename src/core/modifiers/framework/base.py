@@ -7,9 +7,9 @@ import shutil
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from src.utils.shell import ShellRunner
 from src.core.modifiers.base_modifier import BaseModifier
 from src.core.modifiers.smali_args import SmaliArgs
+from src.utils.shell import ShellRunner
 from src.utils.smalikit import SmaliKit
 
 if TYPE_CHECKING:

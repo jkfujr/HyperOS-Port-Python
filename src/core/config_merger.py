@@ -1,13 +1,12 @@
-"""
-Configuration merger with enhanced strategies.
+"""Configuration merger with enhanced strategies.
 Supports append, override, remove strategies and dependency resolution.
 """
 
 import json
 import logging
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Set, Tuple
-from dataclasses import dataclass, field
 
 logger = logging.getLogger(__name__)
 
@@ -49,8 +48,7 @@ class ConfigMergeError(Exception):
 
 
 class ConfigMerger:
-    """
-    Enhanced configuration merger supporting multiple strategies:
+    """Enhanced configuration merger supporting multiple strategies:
     - append: Default, adds new items without duplicates
     - override: Replaces parent configuration entirely
     - remove: Removes items from parent configuration
@@ -63,8 +61,7 @@ class ConfigMerger:
     MERGE_STRATEGY_REMOVE = "remove"
 
     def __init__(self, logger=None):
-        """
-        Initialize the merger.
+        """Initialize the merger.
 
         Args:
             logger: Optional logger instance for logging messages
@@ -80,8 +77,7 @@ class ConfigMerger:
             getattr(logger, level, logger.info)(message)
 
     def merge(self, base: Dict[str, Any], extra: Dict[str, Any], path: str = "") -> Dict[str, Any]:
-        """
-        Merge two configurations with strategy support.
+        """Merge two configurations with strategy support.
 
         Args:
             base: Base configuration
@@ -135,8 +131,7 @@ class ConfigMerger:
         return result
 
     def _deep_merge(self, base: Any, extra: Any, path: str = "") -> Any:
-        """
-        Deep merge two values.
+        """Deep merge two values.
 
         Args:
             base: Base value
@@ -170,8 +165,7 @@ class ConfigMerger:
     def _merge_list_by_description(
         self, base: List[Dict], extra: List[Dict], path: str = ""
     ) -> List[Dict]:
-        """
-        Merge two lists of dictionaries by matching 'description' field.
+        """Merge two lists of dictionaries by matching 'description' field.
 
         Args:
             base: Base list
@@ -231,8 +225,7 @@ class ConfigMerger:
     def load_and_merge(
         self, paths: List[Path], filename: str
     ) -> Tuple[Dict[str, Any], MergeReport]:
-        """
-        Load and merge multiple configuration files.
+        """Load and merge multiple configuration files.
 
         Args:
             paths: List of directory paths to scan
@@ -248,7 +241,7 @@ class ConfigMerger:
             file_path = p / filename
             if file_path.exists():
                 try:
-                    with open(file_path, "r") as f:
+                    with open(file_path) as f:
                         data = json.load(f)
 
                     self.report.loaded_files.append(str(file_path))
@@ -278,8 +271,7 @@ class ConfigMerger:
         return config, self.report
 
     def resolve_dependencies(self, rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-        """
-        Resolve dependencies between rules using topological sort.
+        """Resolve dependencies between rules using topological sort.
 
         Args:
             rules: List of rules that may have 'depends_on' and 'id' fields
@@ -369,8 +361,7 @@ class ConfigMerger:
 def merge_configs(
     paths: List[Path], filename: str, logger=None
 ) -> Tuple[Dict[str, Any], MergeReport]:
-    """
-    Convenience function to load and merge configs.
+    """Convenience function to load and merge configs.
 
     Args:
         paths: List of paths to load
@@ -385,8 +376,7 @@ def merge_configs(
 
 
 def resolve_rule_dependencies(rules: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """
-    Convenience function to resolve rule dependencies.
+    """Convenience function to resolve rule dependencies.
 
     Args:
         rules: List of rules

@@ -1,15 +1,14 @@
-import os
-import shutil
-import zipfile
 import logging
-import urllib.request
+import zipfile
 from pathlib import Path
 from typing import Optional
 
 
 class OtaToolsManager:
     # Hardcoded URL for otatools download
-    DEFAULT_URL = "https://github.com/toraidl/HyperOS-Port-Python/releases/download/assets/otatools.zip"
+    DEFAULT_URL = (
+        "https://github.com/toraidl/HyperOS-Port-Python/releases/download/assets/otatools.zip"
+    )
 
     def __init__(self, tools_dir: Path = Path("otatools")):
         self.tools_dir = tools_dir
@@ -19,18 +18,17 @@ class OtaToolsManager:
         """Check if the otatools directory exists with basic components."""
         if not self.tools_dir.exists():
             return False
-        
+
         # Check for some common directories that should be in otatools
         required_dirs = ["bin", "lib64"]
         for d in required_dirs:
             if not (self.tools_dir / d).exists():
                 return False
-                
+
         return True
 
     def download_otatools(self, url: Optional[str] = None) -> bool:
-        """
-        Download and extract otatools from given URL (or default URL).
+        """Download and extract otatools from given URL (or default URL).
 
         Args:
             url: URL to download otatools.zip from (optional, uses default if not provided)
@@ -44,14 +42,14 @@ class OtaToolsManager:
         try:
             # Create temporary path for download
             temp_file = self.tools_dir.parent / "otatools_temp.zip"
-            
+
             # Remove existing old temp file if exists
             if temp_file.exists():
                 temp_file.unlink()
 
             # Actually download the tools using our custom helper
             from .file_downloader import download_file
-            
+
             success = download_file(url, temp_file, self.logger)
             if not success:
                 self.logger.error("Failed to download otatools.")
@@ -88,14 +86,15 @@ class OtaToolsManager:
             return False
 
     def ensure_otatools(self) -> bool:
-        """
-        Check if otatools exists and is complete; if not, download it.
+        """Check if otatools exists and is complete; if not, download it.
 
         Returns:
             True if otatools is available or successfully downloaded, False otherwise
         """
         if self.check_otatools_exists():
-            self.logger.info(f"otatools already exists and is complete at {self.tools_dir.resolve()}")
+            self.logger.info(
+                f"otatools already exists and is complete at {self.tools_dir.resolve()}"
+            )
             return True
 
         if self.tools_dir.exists():

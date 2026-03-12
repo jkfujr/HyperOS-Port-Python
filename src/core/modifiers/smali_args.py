@@ -3,7 +3,7 @@
 
 class SmaliArgs:
     """Arguments for SmaliKit patching operations."""
-    
+
     def __init__(self, **kwargs):
         self.path = None
         self.file_path = None
@@ -20,5 +20,5 @@ class SmaliArgs:
         self.insert_line = None
         self.recursive = False
         self.return_type = None
-        
+
         self.__dict__.update(kwargs)

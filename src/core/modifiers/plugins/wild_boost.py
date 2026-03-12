@@ -55,8 +55,7 @@ class WildBoostPlugin(ModifierPlugin):
         return True
 
     def _get_kernel_version(self) -> str:
-        """
-        Detect kernel/KMI version from boot image.
+        """Detect kernel/KMI version from boot image.
         Prioritizes full KMI string (e.g., android14-5.15) over simple version (5.15).
         """
         boot_img = self.ctx.repack_images_dir / "boot.img"

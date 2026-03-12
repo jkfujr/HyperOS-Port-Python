@@ -4,22 +4,20 @@ This module provides a unified interface for all ROM modifications,
 including system-level plugins and APK-level plugins.
 """
 
-from pathlib import Path
 from typing import List, Optional
 
+from src.core.config_loader import load_device_config
 from src.core.modifiers.base_modifier import BaseModifier
-from src.core.modifiers.plugin_system import PluginManager
-from src.core.modifiers.plugin_system import PluginManager, ModifierPlugin
+from src.core.modifiers.plugin_system import ModifierPlugin, PluginManager
 from src.core.modifiers.plugins import (
-    WildBoostPlugin,
     EULocalizationPlugin,
     FeatureUnlockPlugin,
-    VNDKFixPlugin,
     FileReplacementPlugin,
+    VNDKFixPlugin,
+    WildBoostPlugin,
 )
+from src.core.modifiers.plugins.apk import ApkModifierRegistry
 from src.core.props import PropertyModifier
-from src.core.modifiers.plugins.apk import ApkModifierPlugin, ApkModifierRegistry
-from src.core.config_loader import load_device_config
 
 
 class UnifiedModifier(BaseModifier):
@@ -46,9 +44,7 @@ class UnifiedModifier(BaseModifier):
 
         # APK-level plugin manager
         self.apk_manager = (
-            PluginManager(
-                context, self.logger, dry_run=dry_run, max_workers=max_workers
-            )
+            PluginManager(context, self.logger, dry_run=dry_run, max_workers=max_workers)
             if enable_apk_mods
             else None
         )
@@ -77,6 +73,7 @@ class UnifiedModifier(BaseModifier):
         """Dynamically discover and register system-level plugins."""
         import importlib
         import pkgutil
+
         from src.core.modifiers.plugins import __path__ as plugins_path
 
         # Get the package name
@@ -126,20 +123,15 @@ class UnifiedModifier(BaseModifier):
                     "name",
                     plugin_cls.__name__.lower().replace("plugin", ""),
                 )
-                if (
-                    plugin_name
-                    not in [
-                        reg.name
-                        if hasattr(reg, "name")
-                        else reg.name  # Fixed: plugin already has .name attribute from list_plugins()
-                        for reg in self.system_manager._plugins.values()  # Fixed: changed from ._plugins to ._plugins.values()
-                    ]
-                ):
+                if plugin_name not in [
+                    (
+                        reg.name if hasattr(reg, "name") else reg.name
+                    )  # Fixed: plugin already has .name attribute from list_plugins()
+                    for reg in self.system_manager._plugins.values()  # Fixed: changed from ._plugins to ._plugins.values()
+                ]:
                     self.system_manager.register(plugin_cls)
             except Exception as e:
-                self.logger.debug(
-                    f"Could not register plugin {plugin_cls.__name__}: {e}"
-                )
+                self.logger.debug(f"Could not register plugin {plugin_cls.__name__}: {e}")
 
         # Log registered plugins
         registered_plugins = self.system_manager.list_plugins()
@@ -177,8 +169,7 @@ class UnifiedModifier(BaseModifier):
             skipped = sum(1 for r in results.values() if r is None)
 
             self.logger.info(
-                f"System modifications: {success} succeeded, "
-                f"{failed} failed, {skipped} skipped"
+                f"System modifications: {success} succeeded, " f"{failed} failed, {skipped} skipped"
             )
 
             if failed > 0:
@@ -206,8 +197,7 @@ class UnifiedModifier(BaseModifier):
             skipped = sum(1 for r in results.values() if r is None)
 
             self.logger.info(
-                f"APK modifications: {success} succeeded, "
-                f"{failed} failed, {skipped} skipped"
+                f"APK modifications: {success} succeeded, " f"{failed} failed, {skipped} skipped"
             )
 
             if failed > 0:
