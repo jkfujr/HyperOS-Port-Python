@@ -1,23 +1,22 @@
 import concurrent.futures
 import hashlib
-import os
-import math
 import logging
+import os
 import shutil
 import subprocess
 import zipfile
-from pathlib import Path
-from typing import List, Optional, Dict, Union, Any, Tuple
-from src.utils.shell import ShellRunner
-from src.utils.fspatch import patch_fs_config
-from src.utils.contextpatch import ContextPatcher
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from src.utils.contextpatch import ContextPatcher
+from src.utils.fspatch import patch_fs_config
+from src.utils.shell import ShellRunner
 
 
 class Repacker:
     def __init__(self, context: Any):
-        """
-        :param context: PortingContext object containing target_dir and other info
+        """:param context: PortingContext object containing target_dir and other info
         """
         self.ctx = context
         self.logger: logging.Logger = logging.getLogger("Packer")
@@ -33,8 +32,7 @@ class Repacker:
         self.ota_tools_dir: Path = Path("otatools").resolve()
 
     def pack_all(self, pack_type: str = "EROFS", is_rw: bool = False) -> None:
-        """
-        Pack all partitions under target directory (parallel optimization)
+        """Pack all partitions under target directory (parallel optimization)
         :param pack_type: "EXT" (ext4) or "EROFS"
         :param is_rw: Read-write mode (only valid for EXT4)
         """
@@ -147,7 +145,7 @@ class Repacker:
 
         inode_count: int = 5000
         try:
-            with open(fs_config, "r") as f:
+            with open(fs_config) as f:
                 inode_count = sum(1 for _ in f) + 8
         except OSError:
             pass
@@ -448,7 +446,9 @@ class Repacker:
 
         md5: str = hashlib.md5(open(final_zip_path, "rb").read()).hexdigest()[:10]
         prefix = "xiaomi.eu_" if getattr(self.ctx, "is_port_eu_rom", False) else ""
-        renamed_zip_name: str = f"{prefix}{self.ctx.stock_rom_code}_Hybrid_{self.ctx.target_rom_version}_{self.ctx.security_patch}_{md5}_{timestamp}.zip"
+        renamed_zip_name: str = (
+            f"{prefix}{self.ctx.stock_rom_code}_Hybrid_{self.ctx.target_rom_version}_{self.ctx.security_patch}_{md5}_{timestamp}.zip"
+        )
         renamed_zip_path: Path = self.out_dir / renamed_zip_name
         final_zip_path.rename(renamed_zip_path)
         self.logger.info(f"Hybrid ROM generated: {renamed_zip_path}")

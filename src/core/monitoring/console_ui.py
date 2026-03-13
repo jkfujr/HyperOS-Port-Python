@@ -3,13 +3,12 @@
 Provides real-time progress bars, spinners, and console output.
 """
 
-import sys
-import time
-import threading
 import logging
-from typing import Optional, List
+import sys
+import threading
+import time
 from dataclasses import dataclass, field
-
+from typing import List, Optional
 
 # Logger for diagnostic messages (not for UI output)
 logger = logging.getLogger(__name__)

@@ -4,18 +4,16 @@ This module provides a flexible plugin architecture for ROM modifications.
 Plugins can be registered dynamically and executed in a specific order.
 """
 
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Type, Callable
-from pathlib import Path
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import logging
-import threading
-
-from src.core.modifiers.transaction import TransactionManager, Transaction
-
-
 import io
+import logging
 import subprocess
+import threading
+from abc import ABC, abstractmethod
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
+from typing import Any, Callable, Dict, List, Optional, Type
+
+from src.core.modifiers.transaction import TransactionManager
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +41,7 @@ class ModifierPlugin(ABC):
         self.ctx = context
         self.logger = logger or logging.getLogger(self.name or self.__class__.__name__)
         self.enabled = True
-        self._plugin_manager: Optional["PluginManager"] = None
+        self._plugin_manager: Optional[PluginManager] = None
         self._result: Optional[bool] = None
         self._error: Optional[Exception] = None
 
@@ -176,11 +174,7 @@ class BufferedLogHandler(logging.Handler):
                 # If it's a StreamHandler (Console), we print the already formatted block
                 if isinstance(handler, logging.StreamHandler) and not isinstance(
                     handler, logging.FileHandler
-                ):
-                    handler.stream.write(content)
-                    handler.flush()
-                # If it's a FileHandler, we also write it
-                elif isinstance(handler, logging.FileHandler):
+                ) or isinstance(handler, logging.FileHandler):
                     handler.stream.write(content)
                     handler.flush()
                 else:
@@ -815,7 +809,7 @@ def load_plugins_from_config(config: Dict[str, Any], manager: PluginManager) -> 
     import json
 
     if isinstance(config, str):
-        with open(config, "r") as f:
+        with open(config) as f:
             config = json.load(f)
 
     plugins_config = config.get("plugins", [])

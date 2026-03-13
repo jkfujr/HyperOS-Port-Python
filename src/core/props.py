@@ -1,11 +1,9 @@
 import json
 import os
-import time
 import re
-import logging
-from pathlib import Path
-from typing import Any, Dict, List, Optional
 from datetime import datetime, timezone
+from pathlib import Path
+
 from src.core.config_merger import ConfigMerger
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
 
@@ -65,8 +63,7 @@ class PropertyModifier(ModifierPlugin):
         return self.modify()
 
     def _apply_custom_props(self):
-        """
-        Load and apply custom properties from props.json across hierarchy.
+        """Load and apply custom properties from props.json across hierarchy.
         """
         paths = [
             Path("devices/common"),
@@ -96,8 +93,7 @@ class PropertyModifier(ModifierPlugin):
                 self._update_or_append_prop(prop_file, key, value)
 
     def _global_codename_replacement(self):
-        """
-        Replace Port codename/model with Base codename/model globally in all build.prop files.
+        """Replace Port codename/model with Base codename/model globally in all build.prop files.
         """
         self.logger.info("Performing global codename and model replacement...")
 
@@ -122,12 +118,11 @@ class PropertyModifier(ModifierPlugin):
 
                 if content != new_content:
                     prop_file.write_text(new_content, encoding="utf-8")
-            except (IOError, OSError) as e:
+            except OSError as e:
                 self.logger.error(f"Failed to process {prop_file}: {e}")
 
     def _reconstruct_props(self):
-        """
-        Reconstruct critical hardware properties from Stock ROM into Port ROM.
+        """Reconstruct critical hardware properties from Stock ROM into Port ROM.
         """
         self.logger.info("Reconstructing hardware properties from Base...")
 
@@ -159,12 +154,11 @@ class PropertyModifier(ModifierPlugin):
 
                 if modified:
                     prop_file.write_text(content, encoding="utf-8")
-            except (IOError, OSError):
+            except OSError:
                 pass  # Ignore file access errors during prop reconstruction
 
     def _update_general_info(self):
         """Modified to load from devices/common/props_global.json"""
-
         # Generate timestamp
         now = datetime.now(timezone.utc)
         build_date = now.strftime("%a %b %d %H:%M:%S UTC %Y")
@@ -182,9 +176,9 @@ class PropertyModifier(ModifierPlugin):
             return
 
         try:
-            with open(config_path, "r") as f:
+            with open(config_path) as f:
                 config = json.load(f)
-        except (json.JSONDecodeError, IOError, OSError) as e:
+        except (json.JSONDecodeError, OSError) as e:
             self.logger.error(f"Failed to load props_global.json: {e}")
             return
 
@@ -219,7 +213,7 @@ class PropertyModifier(ModifierPlugin):
         # Iterate all build.prop and modify
         for prop_file in self.ctx.target_dir.rglob("build.prop"):
             lines = []
-            with open(prop_file, "r", encoding="utf-8", errors="ignore") as f:
+            with open(prop_file, encoding="utf-8", errors="ignore") as f:
                 lines = f.readlines()
 
             new_lines = []
@@ -349,8 +343,7 @@ class PropertyModifier(ModifierPlugin):
                 vendor_prop.write_text(content, encoding="utf-8")
 
     def _update_or_append_prop(self, file_path: Path, key: str, value: str | None):
-        """
-        Helper function: update, append or delete property.
+        """Helper function: update, append or delete property.
         If value is None, the property will be removed.
         """
         if not file_path.exists():
@@ -386,8 +379,7 @@ class PropertyModifier(ModifierPlugin):
             file_path.write_text(new_content, encoding="utf-8")
 
     def _regenerate_fingerprint(self):
-        """
-        Regenerate ro.build.fingerprint and ro.build.description based on modified properties
+        """Regenerate ro.build.fingerprint and ro.build.description based on modified properties
         Format: Brand/Name/Device:Release/ID/Incremental:Type/Tags
         """
         self.logger.info("Regenerating build fingerprint...")
@@ -397,11 +389,11 @@ class PropertyModifier(ModifierPlugin):
             for part in ["product", "system", "vendor", "mi_ext"]:
                 for prop_file in (self.ctx.target_dir / part).rglob("build.prop"):
                     try:
-                        with open(prop_file, "r", errors="ignore") as f:
+                        with open(prop_file, errors="ignore") as f:
                             for line in f:
                                 if line.strip().startswith(f"{key}="):
                                     return line.split("=", 1)[1].strip()
-                    except (IOError, OSError, ValueError, IndexError):
+                    except (OSError, ValueError, IndexError):
                         pass  # Ignore file access or parse errors when reading props
             return default
 
@@ -445,9 +437,9 @@ class PropertyModifier(ModifierPlugin):
         for prop_file in self.ctx.target_dir.rglob("build.prop"):
             lines = []
             try:
-                with open(prop_file, "r", encoding="utf-8", errors="ignore") as f:
+                with open(prop_file, encoding="utf-8", errors="ignore") as f:
                     lines = f.readlines()
-            except (IOError, OSError):
+            except OSError:
                 continue  # Skip files that cannot be read
 
             new_lines = []
@@ -476,8 +468,7 @@ class PropertyModifier(ModifierPlugin):
                     f.writelines(new_lines)
 
     def _optimize_core_affinity(self):
-        """
-        Core allocation and scheduler optimization (supports sm8250, sm8450, sm8550 and Android version differences)
+        """Core allocation and scheduler optimization (supports sm8250, sm8450, sm8550 and Android version differences)
         Updated to use devices/common/scheduler.json
         """
         self.logger.info("Optimizing core affinity and scheduler...")
@@ -501,7 +492,7 @@ class PropertyModifier(ModifierPlugin):
                         return "sm8450"
                     if "sm8250" in content:
                         return "sm8250"
-                except (IOError, OSError):
+                except OSError:
                     pass  # Ignore file access errors when detecting platform
             return "unknown"
 
@@ -512,9 +503,9 @@ class PropertyModifier(ModifierPlugin):
             config = {}
         else:
             try:
-                with open(config_path, "r") as f:
+                with open(config_path) as f:
                     config = json.load(f)
-            except (json.JSONDecodeError, IOError, OSError) as e:
+            except (json.JSONDecodeError, OSError) as e:
                 self.logger.error(f"Failed to load scheduler.json: {e}")
                 return
 

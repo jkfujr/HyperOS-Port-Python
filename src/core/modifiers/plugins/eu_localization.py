@@ -22,10 +22,9 @@ class EULocalizationPlugin(ModifierPlugin):
 
     def check_prerequisites(self) -> bool:
         """Check if EU bundle is available."""
-        return (
-            getattr(self.ctx, "is_port_eu_rom", False)
-            and getattr(self.ctx, "eu_bundle", None) is not None
-        )
+        # If user provides --eu-bundle, they explicitly want to use this plugin.
+        # We should not rely on 'is_port_eu_rom' flag which might be missing.
+        return getattr(self.ctx, "eu_bundle", None) is not None
 
     def modify(self) -> bool:
         """Apply EU localization."""
@@ -77,8 +76,25 @@ class EULocalizationPlugin(ModifierPlugin):
             target_apks = self.ctx.syncer.find_apks_by_package(pkg_name, self.ctx.target_dir)
 
             if target_apks:
+                # Get versions for comparison
+                eu_apk_path = bundle_packages[pkg_name][0]
+                eu_version = "Unknown"
+                try:
+                    eu_version = self.ctx.syncer._get_apk_version(eu_apk_path) or "Unknown"
+                except Exception:
+                    pass
+
+                target_version = "Unknown"
+                if target_apks[0].exists():
+                    try:
+                        target_version = (
+                            self.ctx.syncer._get_apk_version(target_apks[0]) or "Unknown"
+                        )
+                    except Exception:
+                        pass
+
                 self.logger.info(
-                    f"Replacing EU App: {pkg_name} ({len(target_apks)} instance(s) found)"
+                    f"Replacing EU App: {pkg_name} | Target: {target_version} -> EU: {eu_version} ({len(target_apks)} instance(s))"
                 )
 
                 for target_apk in target_apks:

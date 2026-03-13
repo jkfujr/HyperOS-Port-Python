@@ -1,21 +1,22 @@
-import subprocess
-import platform
-import os
 import logging
+import os
+import platform
+import subprocess
 from pathlib import Path
-from typing import List, Union, Optional, Callable
+from typing import Callable, List, Optional, Union
+
 
 class ShellRunner:
     def __init__(self):
         self.logger = logging.getLogger("Shell")
-        
+
         system = platform.system().lower()
         if system == "darwin":
-            self.os_name = "darwin" # macOS
+            self.os_name = "darwin"  # macOS
         elif system == "linux":
             self.os_name = "linux"
         else:
-            self.os_name = "windows" 
+            self.os_name = "windows"
 
         machine = platform.machine().lower()
         if machine in ["x86_64", "amd64"]:
@@ -23,19 +24,18 @@ class ShellRunner:
         elif machine in ["aarch64", "arm64"]:
             self.arch = "aarch64"
         else:
-            self.arch = "x86_64" # 默认 fallback
+            self.arch = "x86_64"  # 默认 fallback
 
         project_root = Path(__file__).resolve().parent.parent.parent
         self.bin_dir = project_root / "bin" / self.os_name / self.arch
 
         if not self.bin_dir.exists():
             self.logger.warning(f"Binary directory not found: {self.bin_dir}")
-            
+
         self.otatools_bin = project_root / "otatools" / "bin"
 
     def get_binary_path(self, tool_name: str) -> Path:
-        """
-        Get the absolute path of the tool.
+        """Get the absolute path of the tool.
         Search Order:
         1. bin/{os}/{arch}/ (Platform specific tools)
         2. otatools/bin/ (Google OTA tools)
@@ -60,13 +60,18 @@ class ShellRunner:
         # 4. Fallback to command name (relies on PATH)
         return Path(tool_name)
 
-    def run(self, cmd: Union[str, List[str]], cwd: Optional[Path] = None, 
-            check: bool = True, capture_output: bool = False, 
-            env: Optional[dict] = None, logger: Optional[logging.Logger] = None,
-            on_line: Optional[Callable[[str], None]] = None,
-            shell: bool = False) -> subprocess.CompletedProcess:
-        """
-        Core method to execute commands
+    def run(
+        self,
+        cmd: Union[str, List[str]],
+        cwd: Optional[Path] = None,
+        check: bool = True,
+        capture_output: bool = False,
+        env: Optional[dict] = None,
+        logger: Optional[logging.Logger] = None,
+        on_line: Optional[Callable[[str], None]] = None,
+        shell: bool = False,
+    ) -> subprocess.CompletedProcess:
+        """Core method to execute commands
         :param cmd: List of commands (recommended) or string. e.g. ["lpunpack", "super.img"]
         :param cwd: Working directory for execution
         :param check: If True, raise exception when command returns non-zero
@@ -76,7 +81,6 @@ class ShellRunner:
         :param on_line: Optional callback function called for each line of output
         :param shell: If True, execute the command through the shell
         """
-        
         # Binary search logic (skipped if shell=True and cmd is a string)
         if not shell and isinstance(cmd, list):
             tool = cmd[0]
@@ -85,11 +89,11 @@ class ShellRunner:
                 cmd[0] = str(tool_path)
                 if not os.access(tool_path, os.X_OK):
                     os.chmod(tool_path, 0o755)
-        
+
         run_env = os.environ.copy()
         if env:
             run_env.update(env)
-            
+
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
         self.logger.debug(f"Running: {cmd_str}")
 
@@ -106,9 +110,9 @@ class ShellRunner:
                     text=True,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
-                    env=run_env
+                    env=run_env,
                 )
-                
+
                 output_lines = []
                 if process.stdout:
                     for line in process.stdout:
@@ -120,13 +124,13 @@ class ShellRunner:
                             # Standard streaming log
                             logger.info(f"  [SHELL] {clean_line}")
                         output_lines.append(line)
-                
+
                 returncode = process.wait()
                 stdout = "".join(output_lines)
-                
+
                 if check and returncode != 0:
                     raise subprocess.CalledProcessError(returncode, cmd, output=stdout)
-                
+
                 return subprocess.CompletedProcess(cmd, returncode, stdout, "")
             else:
                 # Normal mode
@@ -137,16 +141,16 @@ class ShellRunner:
                     shell=shell if shell else (isinstance(cmd, str)),
                     text=True,
                     capture_output=should_capture,
-                    env=run_env
+                    env=run_env,
                 )
                 return result
-            
+
         except subprocess.CalledProcessError as e:
             self.logger.error(f"Command failed with return code {e.returncode}")
             self.logger.error(f"Command: {cmd_str}")
-            if hasattr(e, 'stderr') and e.stderr:
+            if hasattr(e, "stderr") and e.stderr:
                 self.logger.error(f"Stderr: {e.stderr.strip()}")
-            elif hasattr(e, 'output') and e.output:
+            elif hasattr(e, "output") and e.output:
                 self.logger.error(f"Output: {e.output.strip()}")
             raise e
 

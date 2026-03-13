@@ -5,10 +5,10 @@ import logging
 import os
 import shutil
 from pathlib import Path
-from typing import TYPE_CHECKING, List, Union
+from typing import TYPE_CHECKING, Union
 
 if TYPE_CHECKING:
-    from .package import RomPackage
+    pass
 
 
 def compute_file_hash(file_path: Path) -> str:
@@ -119,7 +119,7 @@ def load_single_prop_file(
 
     logger.debug(f"Parsing: {rel_path}")
     try:
-        with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
+        with open(file_path, encoding="utf-8", errors="ignore") as f:
             for line in f:
                 line = line.strip()
                 if not line or line.startswith("#") or "=" not in line:

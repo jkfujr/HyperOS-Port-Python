@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
 # ====================================================
 #          FILE: sdat2img.py
 #       AUTHORS: xpirt - luxi78 - howellzhu
 # ====================================================
 
-import sys, os, logging
+import logging
+import sys
 
 
 def run_sdat2img(transfer_list_file, new_dat_file, output_image_file):
     BLOCK_SIZE = 4096
 
     try:
-        trans_list = open(transfer_list_file, "r")
+        trans_list = open(transfer_list_file)
         version_line = trans_list.readline()
         if not version_line:
             return False

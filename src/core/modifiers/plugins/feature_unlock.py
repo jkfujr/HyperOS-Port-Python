@@ -61,7 +61,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
         common_cfg = Path("devices/common/features.json")
         if common_cfg.exists():
             try:
-                with open(common_cfg, "r") as f:
+                with open(common_cfg) as f:
                     config = json.load(f)
             except Exception as e:
                 self.logger.error(f"Failed to load common features: {e}")
@@ -70,7 +70,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
         device_cfg = Path(f"devices/{self.ctx.stock_rom_code}/features.json")
         if device_cfg.exists():
             try:
-                with open(device_cfg, "r") as f:
+                with open(device_cfg) as f:
                     device_config = json.load(f)
 
                 # Deep merge
@@ -190,7 +190,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
 
         if eu_cfg_path.exists():
             try:
-                with open(eu_cfg_path, "r") as f:
+                with open(eu_cfg_path) as f:
                     eu_config = json.load(f)
                 eu_props = eu_config.get("build_props", {})
                 self._apply_build_props(eu_props, True)

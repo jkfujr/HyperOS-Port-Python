@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-import shutil
-import logging
 import concurrent.futures
+import logging
+import platform
+import shutil
 import subprocess
 from pathlib import Path
-import platform
 from types import SimpleNamespace
-from typing import Optional, Dict, List, Union, Any, TYPE_CHECKING
+from typing import TYPE_CHECKING, Dict, List, Optional, Union
 
 from src.core.rom import RomPackage
-from src.utils.sync_engine import ROMSyncEngine
 from src.utils.shell import ShellRunner
+from src.utils.sync_engine import ROMSyncEngine
 
 if TYPE_CHECKING:
     pass  # For future type imports
@@ -21,7 +21,11 @@ class PortingContext:
     """Context class for managing ROM porting operations."""
 
     def __init__(
-        self, stock_rom: RomPackage, port_rom: RomPackage, target_work_dir: Union[str, Path], is_official_modify: bool = False
+        self,
+        stock_rom: RomPackage,
+        port_rom: RomPackage,
+        target_work_dir: Union[str, Path],
+        is_official_modify: bool = False,
     ) -> None:
         self.stock: RomPackage = stock_rom
         self.port: RomPackage = port_rom
@@ -40,8 +44,7 @@ class PortingContext:
         self.enable_ksu: bool = False
 
     def _init_tools(self) -> None:
-        """
-        Auto-detect system environment and set global tool paths.
+        """Auto-detect system environment and set global tool paths.
         """
         system: str = platform.system().lower()  # windows, linux, darwin
         machine: str = platform.machine().lower()  # x86_64, amd64, aarch64, arm64
@@ -96,8 +99,7 @@ class PortingContext:
             self.logger.warning(f"magiskboot not found at {self.tools.magiskboot}")
 
     def initialize_target(self) -> None:
-        """
-        Initialize target workspace (Parallel optimized).
+        """Initialize target workspace (Parallel optimized).
         1. Define partition sources (Stock vs Port).
         2. Extract and copy folders.
         3. Copy corresponding SELinux/fs_config configurations.
@@ -149,7 +151,6 @@ class PortingContext:
 
     def _install_partition(self, part_name: str, source_rom: RomPackage) -> None:
         """Install partition from source ROM to Target"""
-
         # 1. Extract source partition
         src_dir: Optional[Path] = source_rom.extract_partition_to_file(part_name)
 
@@ -192,8 +193,7 @@ class PortingContext:
             self.logger.warning(f"Missing file_contexts for {part_name} in {source_rom.label}")
 
     def _copy_firmware_images(self, exclude_list: List[str]) -> None:
-        """
-        Copy firmware images from Base ROM that don't need modification.
+        """Copy firmware images from Base ROM that don't need modification.
         Iterate .img files in stock/images/, excluding logical partitions.
         """
         self.logger.info("Copying firmware images from Base ROM...")
@@ -223,8 +223,7 @@ class PortingContext:
         self.logger.info(f"Copied {copied_count} firmware images to {self.repack_images_dir}")
 
     def get_rom_info(self) -> None:
-        """
-        Fetch detailed parameters for Stock and Port ROMs.
+        """Fetch detailed parameters for Stock and Port ROMs.
         """
         self.logger.info("Fetching ROM build props...")
 
@@ -375,8 +374,7 @@ class PortingContext:
         self.logger.info(f"Is Port EU ROM: {self.is_port_eu_rom}")
 
     def get_target_prop_file(self, part_name: str) -> Optional[Path]:
-        """
-        Find build.prop in build/target/{part_name}
+        """Find build.prop in build/target/{part_name}
         """
         part_dir: Path = self.target_dir / part_name
         if not part_dir.exists():
@@ -408,8 +406,7 @@ class PortingContext:
     # =========================================================================
 
     def build_apk_caches(self, force: bool = False) -> Dict[str, int]:
-        """
-        Build APK caches for fast lookup.
+        """Build APK caches for fast lookup.
 
         Delegates to ROMSyncEngine for caching.
 
@@ -440,8 +437,7 @@ class PortingContext:
         return self.syncer.get_apk_cache_stats()
 
     def _get_apk_package_name(self, apk_path: Path) -> Optional[str]:
-        """
-        Use aapt2 to parse APK package name.
+        """Use aapt2 to parse APK package name.
 
         Args:
             apk_path: Path to APK file
@@ -467,8 +463,7 @@ class PortingContext:
             return None
 
     def find_apk_by_name(self, apk_name: str) -> Optional[Path]:
-        """
-        Find APK by filename (case-insensitive).
+        """Find APK by filename (case-insensitive).
 
         Delegates to ROMSyncEngine for caching.
 
@@ -481,8 +476,7 @@ class PortingContext:
         return self.syncer.find_apk_by_name(apk_name, self.target_dir)
 
     def find_apk_by_package(self, package_name: str) -> Optional[Path]:
-        """
-        Find APK by package name.
+        """Find APK by package name.
 
         Delegates to ROMSyncEngine for caching.
 
