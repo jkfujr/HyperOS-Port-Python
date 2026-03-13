@@ -13,6 +13,9 @@
         },
         "system": {
             "ro.product.mod_device": ""
+        },
+        "vendor": {
+            "ro.control_privapp_permissions": "disable"
         }
     }
 }
