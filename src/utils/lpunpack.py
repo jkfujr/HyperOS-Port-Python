@@ -169,13 +169,24 @@ class SparseChunkHeader(object):
         ) = struct.unpack(fmt, buffer[0:struct.calcsize(fmt)])
 
 
+class StructSize:
+    """结构体大小描述符，同时支持类访问与实例访问。
+
+    不能用 `@classmethod` + `@property` 叠加：该写法在 Python 3.11 起弃用、3.13 已移除，
+    会让 `size` 不是整数，进而在 `buffer[0:self.size]` 处抛
+    `TypeError: slice indices must be integers or None`。
+
+    这里也不能退化成普通 `@property`，因为存在类级访问（如 `LpMetadataHeader.size`），
+    普通 property 在类访问时返回的是 property 对象而非 int。
+    """
+
+    def __get__(self, obj, objtype=None):
+        return struct.calcsize((objtype or type(obj))._fmt)
+
+
 class LpMetadataBase:
     _fmt = None
-
-    @classmethod
-    @property
-    def size(cls) -> int:
-        return struct.calcsize(cls._fmt)
+    size = StructSize()
 
 
 class LpMetadataGeometry(LpMetadataBase):
