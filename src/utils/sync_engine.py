@@ -5,6 +5,7 @@ import threading
 import time
 from pathlib import Path
 from typing import Dict, List
+from src.utils.i18n import t
 
 
 class ROMSyncEngine:
@@ -22,7 +23,7 @@ class ROMSyncEngine:
         if not directory or not directory.exists():
             return cache
 
-        self.logger.info(f"Building index cache for {directory.name}...")
+        self.logger.info(t('Building index cache for %s...'), directory.name)
         start_time = time.time()
 
         for path in directory.rglob("*"):
@@ -33,7 +34,7 @@ class ROMSyncEngine:
 
         elapsed = time.time() - start_time
         item_count = sum(len(v) for v in cache.values())
-        self.logger.info(f"Cache built in {elapsed:.2f}s. Indexed {item_count} items.")
+        self.logger.info(t('Cache built in %.2fs. Indexed %s items.'), elapsed, item_count)
         return cache
 
     def _get_matches(self, cache: dict, name: str) -> list:
@@ -73,14 +74,14 @@ class ROMSyncEngine:
         if target_dir and not self._target_rom_cache:
             self._target_rom_cache = self._build_cache(target_dir)
 
-        self.logger.info(f"Executing {len(rules)} porting rules...")
+        self.logger.info(t('Executing %s porting rules...'), len(rules))
 
         for rule in rules:
             mode = rule.get("mode")
             src_name = rule.get("source")
             tgt_name = rule.get("target")
 
-            self.logger.info(f"  -> [{mode.upper()}] Processing {tgt_name} ...")
+            self.logger.info(t('  -> [%s] Processing %s ...'), mode.upper(), tgt_name)
 
             # 1. Process modes requiring source file copy
             if mode in ["file_to_dir", "file_to_file", "dir_to_dir"]:
@@ -88,10 +89,10 @@ class ROMSyncEngine:
                 tgt_matches = self._get_matches(self._target_rom_cache, tgt_name)
 
                 if not src_matches:
-                    self.logger.warning(f"     [!] Source '{src_name}' not found. Skipped.")
+                    self.logger.warning(t("     [!] Source '%s' not found. Skipped."), src_name)
                     continue
                 if not tgt_matches:
-                    self.logger.warning(f"     [!] Target '{tgt_name}' not found. Skipped.")
+                    self.logger.warning(t("     [!] Target '%s' not found. Skipped."), tgt_name)
                     continue
 
                 src_match, tgt_match = src_matches[0], tgt_matches[0]
@@ -100,27 +101,23 @@ class ROMSyncEngine:
                     if mode == "file_to_dir":
                         if tgt_match.is_dir():
                             shutil.copy2(src_match, tgt_match)
-                            self.logger.debug(
-                                f"     [+] Copied to {tgt_match.relative_to(target_dir)}"
-                            )
+                            self.logger.debug(t('     [+] Copied to %s'), tgt_match.relative_to(target_dir))
                     elif mode == "file_to_file":
                         shutil.copy2(src_match, tgt_match)
-                        self.logger.debug(f"     [+] Replaced {tgt_match.relative_to(target_dir)}")
+                        self.logger.debug(t('     [+] Replaced %s'), tgt_match.relative_to(target_dir))
                     elif mode == "dir_to_dir":
                         if tgt_match.exists():
                             shutil.rmtree(tgt_match)
                         shutil.copytree(src_match, tgt_match)
-                        self.logger.debug(
-                            f"     [+] Replaced dir {tgt_match.relative_to(target_dir)}"
-                        )
+                        self.logger.debug(t('     [+] Replaced dir %s'), tgt_match.relative_to(target_dir))
                 except Exception as e:
-                    self.logger.error(f"     [X] Error syncing {src_name}: {e}")
+                    self.logger.error(t('     [X] Error syncing %s: %s'), src_name, e)
 
             # 2. Process modes modifying target file (HexPatch)
             elif mode == "hexpatch":
                 tgt_matches = self._get_matches(self._target_rom_cache, tgt_name)
                 if not tgt_matches:
-                    self.logger.warning(f"     [!] Target '{tgt_name}' not found for hexpatch.")
+                    self.logger.warning(t("     [!] Target '%s' not found for hexpatch."), tgt_name)
                     continue
 
                 for tgt_match in tgt_matches:
@@ -133,56 +130,44 @@ class ROMSyncEngine:
                             rule["hex_new"],
                         ]
                         subprocess.run(cmd, check=True, capture_output=True)
-                        self.logger.debug(
-                            f"     [+] HexPatched {tgt_match.relative_to(target_dir)}"
-                        )
+                        self.logger.debug(t('     [+] HexPatched %s'), tgt_match.relative_to(target_dir))
                     except subprocess.CalledProcessError as e:
-                        self.logger.error(
-                            f"     [X] Magiskboot failed on {tgt_match.name}: {e.stderr.decode('utf-8', errors='ignore')}"
-                        )
+                        self.logger.error(t('     [X] Magiskboot failed on %s: %s'), tgt_match.name, e.stderr.decode('utf-8', errors='ignore'))
 
             # 3. Process property append mode (Build.prop)
             elif mode == "prop_append":
                 tgt_matches = self._get_matches(self._target_rom_cache, tgt_name)
                 if not tgt_matches:
-                    self.logger.warning(f"     [!] Target '{tgt_name}' not found for prop append.")
+                    self.logger.warning(t("     [!] Target '%s' not found for prop append."), tgt_name)
                     continue
 
                 tgt_match = tgt_matches[0]
                 try:
                     with open(tgt_match, "a", encoding="utf-8") as f:
                         f.write("\n" + "\n".join(rule["lines"]) + "\n")
-                    self.logger.debug(
-                        f"     [+] Appended props to {tgt_match.relative_to(target_dir)}"
-                    )
+                    self.logger.debug(t('     [+] Appended props to %s'), tgt_match.relative_to(target_dir))
                 except Exception as e:
-                    self.logger.error(f"     [X] Error writing props: {e}")
+                    self.logger.error(t('     [X] Error writing props: %s'), e)
 
             # 4. Process delete mode (Trim bloatware)
             elif mode == "delete":
                 tgt_matches = self._get_matches(self._target_rom_cache, tgt_name)
                 if not tgt_matches:
-                    self.logger.debug(
-                        f"     [!] Target '{tgt_name}' already absent or not found. Skipped."
-                    )
+                    self.logger.debug(t("     [!] Target '%s' already absent or not found. Skipped."), tgt_name)
                     continue
 
                 for tgt_match in tgt_matches:
                     try:
                         if tgt_match.is_dir():
                             shutil.rmtree(tgt_match)
-                            self.logger.debug(
-                                f"     [-] Removed directory {tgt_match.relative_to(target_dir)}"
-                            )
+                            self.logger.debug(t('     [-] Removed directory %s'), tgt_match.relative_to(target_dir))
                         else:
                             tgt_match.unlink()
-                            self.logger.debug(
-                                f"     [-] Removed file {tgt_match.relative_to(target_dir)}"
-                            )
+                            self.logger.debug(t('     [-] Removed file %s'), tgt_match.relative_to(target_dir))
                     except Exception as e:
-                        self.logger.error(f"     [X] Error deleting {tgt_match.name}: {e}")
+                        self.logger.error(t('     [X] Error deleting %s: %s'), tgt_match.name, e)
             else:
-                self.logger.error(f"     [X] Unknown mode '{mode}'")
+                self.logger.error(t("     [X] Unknown mode '%s'"), mode)
 
     def apply_override(self, override_dir: Path, target_dir: Path):
         """
@@ -191,12 +176,10 @@ class ROMSyncEngine:
         2. Copy override files strictly by relative path into target.
         """
         if not override_dir.exists():
-            self.logger.info(
-                f"Override directory '{override_dir}' not found. Skipping override phase."
-            )
+            self.logger.info(t("Override directory '%s' not found. Skipping override phase."), override_dir)
             return
 
-        self.logger.info(f"Applying intelligent overrides from {override_dir}...")
+        self.logger.info(t('Applying intelligent overrides from %s...'), override_dir)
 
         # Get caches for target_dir
         rom_cache = self._get_rom_cache(target_dir)
@@ -219,9 +202,7 @@ class ROMSyncEngine:
                     # If package name parsed successfully, search cache for old APK location
                     tgt_matches = package_cache.get(override_pkg_name, [])
                     if tgt_matches:
-                        self.logger.debug(
-                            f"     [!] Found target by Package Name: {override_pkg_name}"
-                        )
+                        self.logger.debug(t('     [!] Found target by Package Name: %s'), override_pkg_name)
 
                 # [Fallback] If aapt2 fails or pkg name not found, fallback to filename search
                 if not tgt_matches:
@@ -262,29 +243,21 @@ class ROMSyncEngine:
                                     return hashlib.md5(f.read()).hexdigest()
 
                             if get_hash(override_file) == get_hash(old_file):
-                                self.logger.debug(
-                                    "     [=] Source and target APKs are identical, skipping erasure."
-                                )
+                                self.logger.debug(t('     [=] Source and target APKs are identical, skipping erasure.'))
                                 continue
 
                         # Only delete specific independent App folder, prevent accidental deletion of root dirs like system/app
                         if old_dir.name not in protected_dirs:
-                            self.logger.debug(
-                                f"     [-] Erasing old APK directory: {old_dir.relative_to(target_dir)}"
-                            )
+                            self.logger.debug(t('     [-] Erasing old APK directory: %s'), old_dir.relative_to(target_dir))
                             try:
                                 shutil.rmtree(old_dir)
                             except Exception as e:
-                                self.logger.error(
-                                    f"     [X] Failed to erase old directory {old_dir.name}: {e}"
-                                )
+                                self.logger.error(t('     [X] Failed to erase old directory %s: %s'), old_dir.name, e)
                         else:
                             if old_file.exists():
                                 old_file.unlink()
                 else:
-                    self.logger.debug(
-                        f"     [!] New APK '{override_file.name}' not found in target. Will inject as new."
-                    )
+                    self.logger.debug(t("     [!] New APK '%s' not found in target. Will inject as new."), override_file.name)
             else:
                 tgt_matches = rom_cache.get(file_name_lower, [])
                 if tgt_matches:
@@ -299,10 +272,10 @@ class ROMSyncEngine:
             final_target_path.parent.mkdir(parents=True, exist_ok=True)
             shutil.copy2(override_file, final_target_path)
 
-            self.logger.info(f"     [+] Overrode: {relative_path}")
+            self.logger.info(t('     [+] Overrode: %s'), relative_path)
             override_count += 1
 
-        self.logger.info(f"Successfully applied {override_count} overrides.")
+        self.logger.info(t('Successfully applied %s overrides.'), override_count)
 
     def _get_apk_package_name(self, apk_path: Path) -> str | None:
         """
@@ -330,9 +303,7 @@ class ROMSyncEngine:
             # Standard raw output or fallback
             return output
         except subprocess.CalledProcessError as e:
-            self.logger.warning(
-                f"Failed to parse package name for {apk_path.name}: {e.stderr.strip()}"
-            )
+            self.logger.warning(t('Failed to parse package name for %s: %s'), apk_path.name, e.stderr.strip())
             return None
 
     def _build_package_cache(self, directory: Path):
@@ -347,7 +318,7 @@ class ROMSyncEngine:
             if not directory or not directory.exists():
                 return
 
-            self.logger.info(f"Building APK package name cache for {directory.name}...")
+            self.logger.info(t('Building APK package name cache for %s...'), directory.name)
             start_time = time.time()
 
             package_cache = {}
@@ -364,7 +335,7 @@ class ROMSyncEngine:
             self._package_caches[dir_key] = package_cache
 
             elapsed = time.time() - start_time
-            self.logger.info(f"Package cache built in {elapsed:.2f}s. Indexed {apk_count} APKs.")
+            self.logger.info(t('Package cache built in %.2fs. Indexed %s APKs.'), elapsed, apk_count)
 
     def _get_rom_cache(self, directory: Path) -> Dict:
         """Get or build ROM cache for specific directory."""

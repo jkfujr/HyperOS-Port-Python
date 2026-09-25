@@ -5,6 +5,7 @@ Unlocks FTP and screen effects.
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -20,14 +21,14 @@ class PowerKeeperModifier(ApkModifierPlugin):
     
     def _apply_patches(self, work_dir: Path):
         """Apply PowerKeeper patches."""
-        self.logger.info("Processing PowerKeeper.apk...")
+        self.logger.info(t('Processing PowerKeeper.apk...'))
         
         # Unlock FTP/Screen Effect
         self._unlock_ftp(work_dir)
     
     def _unlock_ftp(self, work_dir: Path):
         """Unlock FTP and screen effects."""
-        self.logger.info("Unlocking FTP/Screen Effect...")
+        self.logger.info(t('Unlocking FTP/Screen Effect...'))
         
         # 1. DisplayFrameSetting -> setScreenEffect -> void
         self.smali_patch(

@@ -2,6 +2,7 @@ import logging
 from pathlib import Path
 
 from .file_downloader import download_file
+from src.utils.i18n import t
 
 
 class AssetDownloader:
@@ -57,7 +58,7 @@ class AssetDownloader:
         # Attempt standard download with a few retries
         max_retries = 2
         for attempt in range(max_retries + 1):
-            self.logger.info(f"Downloading: {asset_name} (Attempt {attempt+1}/{max_retries+1})...")
+            self.logger.info(t('Downloading: %s (Attempt %s/%s)...'), asset_name, attempt + 1, max_retries + 1)
             
             if download_file(url, local_path, self.logger):
                 return True
@@ -65,6 +66,6 @@ class AssetDownloader:
             # If failed, retry logic handled by loop
             if attempt == max_retries:
                 if not self.mirror_url:
-                    self.logger.info("Tip: Try setting a mirror URL in AssetDownloader if network is unstable.")
+                    self.logger.info(t('Tip: Try setting a mirror URL in AssetDownloader if network is unstable.'))
         
         return False

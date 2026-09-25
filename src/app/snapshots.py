@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, cast
+from src.utils.i18n import t
 
 
 @dataclass
@@ -37,10 +38,10 @@ class StageSnapshotManager:
             loaded = json.loads(self.index_path.read_text(encoding="utf-8"))
             if isinstance(loaded, dict):
                 return cast(dict[str, Any], loaded)
-            self.logger.warning("Snapshot index root is not an object. Reinitializing index.")
+            self.logger.warning(t('Snapshot index root is not an object. Reinitializing index.'))
             return {"snapshots": []}
         except json.JSONDecodeError:
-            self.logger.warning("Snapshot index is invalid JSON. Reinitializing index.")
+            self.logger.warning(t('Snapshot index is invalid JSON. Reinitializing index.'))
             return {"snapshots": []}
 
     def _save_index(self, data: dict[str, Any]) -> None:
@@ -71,7 +72,7 @@ class StageSnapshotManager:
         )
         index["snapshots"] = snapshots
         self._save_index(index)
-        self.logger.info(f"Snapshot captured: {name} -> {snapshot_dir}")
+        self.logger.info(t('Snapshot captured: %s -> %s'), name, snapshot_dir)
         return snapshot_dir
 
     def restore(self, name: str, target_dir: str | Path) -> Path:
@@ -84,7 +85,7 @@ class StageSnapshotManager:
         if target.exists():
             shutil.rmtree(target)
         shutil.copytree(snapshot_dir, target, dirs_exist_ok=True)
-        self.logger.info(f"Snapshot restored: {name} -> {target}")
+        self.logger.info(t('Snapshot restored: %s -> %s'), name, target)
         return target
 
     def list_snapshot_names(self) -> list[str]:

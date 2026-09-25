@@ -6,6 +6,7 @@ import shutil
 from typing import TYPE_CHECKING
 
 from src.core.rom import RomPackage
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.context import PortingContext
@@ -40,7 +41,7 @@ def install_partition(ctx: "PortingContext", part_name: str, source_rom: RomPack
     """Install a single partition from the source ROM into the target workspace."""
     src_dir = source_rom.extract_partition_to_file(part_name)
     if not src_dir or not src_dir.exists():
-        ctx.logger.warning(f"Partition {part_name} missing in {source_rom.label}, skipping.")
+        ctx.logger.warning(t('Partition %s missing in %s, skipping.'), part_name, source_rom.label)
         return
 
     dest_dir = ctx.target_dir / part_name
@@ -50,29 +51,29 @@ def install_partition(ctx: "PortingContext", part_name: str, source_rom: RomPack
     try:
         ctx.shell.run(["cp", "-a", "--reflink=auto", str(src_dir), str(dest_dir)])
     except Exception as exc:
-        ctx.logger.error(f"Native copy failed, falling back to shutil: {exc}")
+        ctx.logger.error(t('Native copy failed, falling back to shutil: %s'), exc)
         try:
             shutil.copytree(src_dir, dest_dir, symlinks=True, dirs_exist_ok=True)
         except Exception as fallback_error:
-            ctx.logger.error(f"Copy failed for {part_name}: {fallback_error}")
+            ctx.logger.error(t('Copy failed for %s: %s'), part_name, fallback_error)
 
     src_fs, src_fc = source_rom.get_config_files(part_name)
     if src_fs.exists():
         shutil.copy2(src_fs, ctx.target_config_dir / f"{part_name}_fs_config")
     else:
-        ctx.logger.warning(f"Missing fs_config for {part_name} in {source_rom.label}")
+        ctx.logger.warning(t('Missing fs_config for %s in %s'), part_name, source_rom.label)
 
     if src_fc.exists():
         shutil.copy2(src_fc, ctx.target_config_dir / f"{part_name}_file_contexts")
     else:
-        ctx.logger.warning(f"Missing file_contexts for {part_name} in {source_rom.label}")
+        ctx.logger.warning(t('Missing file_contexts for %s in %s'), part_name, source_rom.label)
 
 
 def copy_firmware_images(ctx: "PortingContext", exclude_list: list[str]) -> None:
     """Copy firmware images that are not replaced by the target workspace."""
-    ctx.logger.info("Copying firmware images from Base ROM...")
+    ctx.logger.info(t('Copying firmware images from Base ROM...'))
     if not ctx.stock.images_dir.exists():
-        ctx.logger.warning("Stock images directory not found! Firmware copy skipped.")
+        ctx.logger.warning(t('Stock images directory not found! Firmware copy skipped.'))
         return
 
     copied_count = 0
@@ -82,8 +83,8 @@ def copy_firmware_images(ctx: "PortingContext", exclude_list: list[str]) -> None
         if clean_name in exclude_list:
             continue
 
-        ctx.logger.debug(f"Copying firmware: {img_file.name}")
+        ctx.logger.debug(t('Copying firmware: %s'), img_file.name)
         shutil.copy2(img_file, ctx.repack_images_dir / img_file.name)
         copied_count += 1
 
-    ctx.logger.info(f"Copied {copied_count} firmware images to {ctx.repack_images_dir}")
+    ctx.logger.info(t('Copied %s firmware images to %s'), copied_count, ctx.repack_images_dir)

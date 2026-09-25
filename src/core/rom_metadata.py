@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 from typing import TYPE_CHECKING, Optional, cast
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.context import PortingContext
@@ -11,7 +12,7 @@ if TYPE_CHECKING:
 
 def populate_rom_metadata(ctx: "PortingContext") -> None:
     """Populate derived ROM metadata on the shared porting context."""
-    ctx.logger.info("Fetching ROM build props...")
+    ctx.logger.info(t('Fetching ROM build props...'))
 
     ctx.base_android_version = (
         ctx.stock.get_prop("ro.system.build.version.release")
@@ -23,9 +24,7 @@ def populate_rom_metadata(ctx: "PortingContext") -> None:
         or ctx.port.get_prop("ro.build.version.release")
         or "0"
     )
-    ctx.logger.info(
-        f"Android Version: Stock=[{ctx.base_android_version}], Port=[{ctx.port_android_version}]"
-    )
+    ctx.logger.info(t('Android Version: Stock=[%s], Port=[%s]'), ctx.base_android_version, ctx.port_android_version)
 
     ctx.base_android_sdk = (
         ctx.stock.get_prop("ro.vendor.build.version.sdk")
@@ -37,7 +36,7 @@ def populate_rom_metadata(ctx: "PortingContext") -> None:
         or ctx.port.get_prop("ro.build.version.sdk")
         or "0"
     )
-    ctx.logger.info(f"SDK Version: Stock=[{ctx.base_android_sdk}], Port=[{ctx.port_android_sdk}]")
+    ctx.logger.info(t('SDK Version: Stock=[%s], Port=[%s]'), ctx.base_android_sdk, ctx.port_android_sdk)
 
     stock_rom_version_inc = ctx.stock.get_prop("ro.vendor.build.version.incremental") or ""
     port_mios_version_inc = (
@@ -47,7 +46,7 @@ def populate_rom_metadata(ctx: "PortingContext") -> None:
     )
 
     if ctx.is_official_modify:
-        ctx.logger.info("Official Modification mode: Skipping version replacement.")
+        ctx.logger.info(t('Official Modification mode: Skipping version replacement.'))
         ctx.target_rom_version = port_mios_version_inc
     else:
         port_device_code_segment = _extract_port_device_code_segment(port_mios_version_inc)
@@ -59,7 +58,7 @@ def populate_rom_metadata(ctx: "PortingContext") -> None:
         )
 
         if "DEV" in port_mios_version_inc:
-            ctx.logger.warning("Dev ROM detected, skipping codename replacement.")
+            ctx.logger.warning(t('Dev ROM detected, skipping codename replacement.'))
             ctx.target_rom_version = port_mios_version_inc
         elif port_device_code_segment != "UNKNOWN":
             ctx.target_rom_version = port_mios_version_inc.replace(
@@ -69,24 +68,22 @@ def populate_rom_metadata(ctx: "PortingContext") -> None:
         else:
             ctx.target_rom_version = port_mios_version_inc
 
-    ctx.logger.info(
-        f"ROM Version: Stock=[{stock_rom_version_inc}], Target=[{ctx.target_rom_version}]"
-    )
+    ctx.logger.info(t('ROM Version: Stock=[%s], Target=[%s]'), stock_rom_version_inc, ctx.target_rom_version)
 
     ctx.stock_rom_code = _detect_stock_rom_code(ctx)
     ctx.port_rom_code = ctx.port.get_prop("ro.product.product.name") or "unknown"
-    ctx.logger.info(f"Device Code: Stock=[{ctx.stock_rom_code}], Port=[{ctx.port_rom_code}]")
+    ctx.logger.info(t('Device Code: Stock=[%s], Port=[%s]'), ctx.stock_rom_code, ctx.port_rom_code)
 
     ab_prop: Optional[str] = ctx.stock.get_prop("ro.build.ab_update")
     ctx.is_ab_device = bool(ab_prop and ab_prop.lower() == "true")
-    ctx.logger.info(f"Is AB Device: {ctx.is_ab_device}")
+    ctx.logger.info(t('Is AB Device: %s'), ctx.is_ab_device)
 
     ctx.security_patch = (
         ctx.port.get_prop("ro.build.version.security_patch")
         or ctx.stock.get_prop("ro.build.version.security_patch")
         or "Unknown"
     )
-    ctx.logger.info(f"Security Patch: {ctx.security_patch}")
+    ctx.logger.info(t('Security Patch: %s'), ctx.security_patch)
 
     build_host = ctx.port.get_prop("ro.build.host", "")
     mod_device = ctx.port.get_prop("ro.product.mod_device", "")
@@ -109,13 +106,8 @@ def populate_rom_metadata(ctx: "PortingContext") -> None:
     ctx.is_port_global_rom = "_global" in mod_device_lower and "xiaomi.eu" not in mod_device_lower
     ctx.port_global_region = _detect_port_global_region(mod_device_lower, ctx.is_port_eu_rom)
 
-    ctx.logger.info(
-        "Is Port EU ROM: %s, Global ROM: %s, Global Region: %s",
-        ctx.is_port_eu_rom,
-        ctx.is_port_global_rom,
-        ctx.port_global_region or "none",
-    )
-    ctx.logger.info("Stock Region: %s", ctx.stock_region or "unknown")
+    ctx.logger.info(t('Is Port EU ROM: %s, Global ROM: %s, Global Region: %s'), ctx.is_port_eu_rom, ctx.is_port_global_rom, ctx.port_global_region or 'none')
+    ctx.logger.info(t('Stock Region: %s'), ctx.stock_region or 'unknown')
 
 
 def _extract_port_device_code_segment(port_version: str) -> str:
@@ -163,7 +155,7 @@ def _detect_stock_rom_code(ctx: "PortingContext") -> str:
     except StopIteration:
         return ctx.stock.get_prop("ro.product.vendor.device") or "unknown"
     except Exception as exc:
-        ctx.logger.warning(f"Error detecting base rom code: {exc}")
+        ctx.logger.warning(t('Error detecting base rom code: %s'), exc)
         return "unknown"
 
 

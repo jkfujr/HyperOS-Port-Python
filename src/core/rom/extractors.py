@@ -8,6 +8,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, List, Optional
 
 from src.utils.payload_dumper import PayloadDumperOutput, PayloadDumperRunner
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from .package import RomPackage
@@ -31,27 +32,24 @@ def extract_payload(
     cmd = ["payload-dumper", "--out", str(package.images_dir)]
 
     if partitions:
-        package.logger.info(f"[{package.label}] Extracting specific images: {partitions} ...")
+        package.logger.info(t('[%s] Extracting specific images: %s ...'), package.label, partitions)
         cmd.extend(["--partitions", ",".join(partitions)])
     else:
-        package.logger.info(f"[{package.label}] Extracting ALL images (Firmware + Logical) ...")
+        package.logger.info(t('[%s] Extracting ALL images (Firmware + Logical) ...'), package.label)
 
     cmd.append(str(package.path))
     package.shell.run(cmd)
 
     # Extract metadata if requested
     if extract_metadata:
-        package.logger.info(f"[{package.label}] Extracting payload metadata...")
+        package.logger.info(t('[%s] Extracting payload metadata...'), package.label)
         try:
             runner = PayloadDumperRunner(package.path)
             payload_info = runner.get_full_info()
-            package.logger.info(
-                f"[{package.label}] Detected device: {payload_info.device_code}, "
-                f"Partitions: {len(payload_info.partition_names)}"
-            )
+            package.logger.info(t('[%s] Detected device: %s, Partitions: %s'), package.label, payload_info.device_code, len(payload_info.partition_names))
             return payload_info
         except Exception as e:
-            package.logger.warning(f"[{package.label}] Failed to extract metadata: {e}")
+            package.logger.warning(t('[%s] Failed to extract metadata: %s'), package.label, e)
             return None
 
     return None
@@ -86,7 +84,7 @@ def extract_brotli(
                     should_extract = True
 
             if should_extract:
-                package.logger.info(f"Extracting {f}...")
+                package.logger.info(t('Extracting %s...'), f)
                 z.extract(f, package.images_dir)
 
     # 2. Process .br files
@@ -98,33 +96,33 @@ def extract_brotli(
         output_img = package.images_dir / f"{prefix}.img"
 
         if output_img.exists():
-            package.logger.info(f"[{package.label}] Image {output_img.name} already exists.")
+            package.logger.info(t('[%s] Image %s already exists.'), package.label, output_img.name)
             continue
 
         if not transfer_list.exists():
-            package.logger.warning(f"Transfer list for {prefix} not found, skipping conversion.")
+            package.logger.warning(t('Transfer list for %s not found, skipping conversion.'), prefix)
             continue
 
         # 3. Brotli Decompress
-        package.logger.info(f"[{package.label}] Decompressing {br_file.name}...")
+        package.logger.info(t('[%s] Decompressing %s...'), package.label, br_file.name)
         try:
             cmd = ["brotli", "-d", "-f", str(br_file), "-o", str(new_dat)]
             package.shell.run(cmd)
         except Exception as e:
-            package.logger.error(f"Brotli decompression failed for {prefix}: {e}")
+            package.logger.error(t('Brotli decompression failed for %s: %s'), prefix, e)
             continue
 
         # 4. sdat2img
-        package.logger.info(f"[{package.label}] Converting {prefix} to raw image...")
+        package.logger.info(t('[%s] Converting %s to raw image...'), package.label, prefix)
         try:
             from src.utils.sdat2img import run_sdat2img
 
             success = run_sdat2img(str(transfer_list), str(new_dat), str(output_img))
 
             if not success:
-                package.logger.error(f"sdat2img failed for {prefix}")
+                package.logger.error(t('sdat2img failed for %s'), prefix)
             else:
-                package.logger.info(f"[{package.label}] Generated {output_img.name}")
+                package.logger.info(t('[%s] Generated %s'), package.label, output_img.name)
                 if new_dat.exists():
                     os.remove(new_dat)
                 if br_file.exists():
@@ -133,7 +131,7 @@ def extract_brotli(
                     os.remove(transfer_list)
 
         except Exception as e:
-            package.logger.error(f"sdat2img execution failed: {e}")
+            package.logger.error(t('sdat2img execution failed: %s'), e)
 
 
 def extract_fastboot(
@@ -164,7 +162,7 @@ def extract_fastboot(
             if partitions and not is_super_img and part_name not in partitions:
                 continue
 
-            package.logger.info(f"Extracting {f}...")
+            package.logger.info(t('Extracting %s...'), f)
             source = z.open(f)
             target_file = open(package.images_dir / Path(f).name, "wb")
             with source, target_file:
@@ -176,15 +174,11 @@ def extract_fastboot(
 
         super_img = package.images_dir / "super.img"
         if super_img.exists():
-            package.logger.info(
-                f"[{package.label}] Found super.img, unpacking logical partitions..."
-            )
+            package.logger.info(t('[%s] Found super.img, unpacking logical partitions...'), package.label)
 
             try:
                 if partitions:
-                    package.logger.info(
-                        f"[{package.label}] Unpacking specific partitions: {partitions}"
-                    )
+                    package.logger.info(t('[%s] Unpacking specific partitions: %s'), package.label, partitions)
                     for part in partitions:
                         part_a = f"{part}_a"
                         try:
@@ -198,13 +192,9 @@ def extract_fastboot(
                             ]
                             package.shell.run(cmd_py)
                         except Exception as e:
-                            package.logger.warning(
-                                f"[{package.label}] Failed to extract {part_a}: {e}"
-                            )
+                            package.logger.warning(t('[%s] Failed to extract %s: %s'), package.label, part_a, e)
                 else:
-                    package.logger.info(
-                        f"[{package.label}] Unpacking ALL partitions from super.img..."
-                    )
+                    package.logger.info(t('[%s] Unpacking ALL partitions from super.img...'), package.label)
                     cmd_py = [
                         sys.executable,
                         "src/utils/lpunpack.py",
@@ -214,7 +204,7 @@ def extract_fastboot(
                     package.shell.run(cmd_py)
 
             except Exception as e:
-                package.logger.error(f"Failed to unpack super.img: {e}")
+                package.logger.error(t('Failed to unpack super.img: %s'), e)
                 raise
             finally:
                 if super_img.exists():
@@ -235,15 +225,11 @@ def extract_fastboot(
 
                     if not target_img.exists():
                         img.rename(target_img)
-                        package.logger.info(
-                            f"[{package.label}] Normalized partition name: {img.name} -> {base_name}"
-                        )
+                        package.logger.info(t('[%s] Normalized partition name: %s -> %s'), package.label, img.name, base_name)
                     else:
                         # If target already exists, and the current one is just another slot,
                         # we keep the one already there (usually _a was processed first)
-                        package.logger.debug(
-                            f"[{package.label}] Skipping {img.name} as {base_name} already exists."
-                        )
+                        package.logger.debug(t('[%s] Skipping %s as %s already exists.'), package.label, img.name, base_name)
                         os.remove(img)
 
 
@@ -257,7 +243,7 @@ def extract_local(
         package: The RomPackage instance.
         partitions: List of partitions to process.
     """
-    package.logger.info(f"[{package.label}] Local dir mode, skipping payload extraction.")
+    package.logger.info(t('[%s] Local dir mode, skipping payload extraction.'), package.label)
 
 
 class ImageExtractor:
@@ -292,7 +278,7 @@ class ImageExtractor:
                 extract_fastboot(self.package, partitions)
 
         except Exception as e:
-            self.package.logger.error(f"Image extraction failed: {e}")
+            self.package.logger.error(t('Image extraction failed: %s'), e)
             raise
 
         # Save hash after successful extraction if source changed
@@ -300,10 +286,6 @@ class ImageExtractor:
             try:
                 with open(source_hash_path, "w") as f:
                     f.write(current_source_hash)
-                self.package.logger.info(
-                    f"[{self.package.label}] Saved source file hash for future change detection."
-                )
+                self.package.logger.info(t('[%s] Saved source file hash for future change detection.'), self.package.label)
             except Exception as e:
-                self.package.logger.warning(
-                    f"[{self.package.label}] Could not save source hash file: {e}"
-                )
+                self.package.logger.warning(t('[%s] Could not save source hash file: %s'), self.package.label, e)

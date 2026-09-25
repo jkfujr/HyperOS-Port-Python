@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
+from src.utils.i18n import t
 
 
 @ModifierRegistry.register
@@ -21,7 +22,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
 
     def modify(self) -> bool:
         """Unlock device features."""
-        self.logger.info("Unlocking device features...")
+        self.logger.info(t('Unlocking device features...'))
 
         config = self._load_config()
         if not config:
@@ -64,7 +65,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
                 with open(common_cfg, "r") as f:
                     config = json.load(f)
             except Exception as e:
-                self.logger.error(f"Failed to load common features: {e}")
+                self.logger.error(t('Failed to load common features: %s'), e)
 
         # Load device-specific config
         device_cfg = Path(f"devices/{self.ctx.stock_rom_code}/features.json")
@@ -83,7 +84,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
                     else:
                         config[key] = value
             except Exception as e:
-                self.logger.error(f"Failed to load device features: {e}")
+                self.logger.error(t('Failed to load device features: %s'), e)
 
         return config
 
@@ -147,12 +148,10 @@ class FeatureUnlockPlugin(ModifierPlugin):
             prop_file = self.ctx.get_target_prop_file(partition)
 
             if not prop_file or not prop_file.exists():
-                self.logger.debug(f"build.prop not found for partition: {partition}")
+                self.logger.debug(t('build.prop not found for partition: %s'), partition)
                 continue
 
-            self.logger.info(
-                f"Applying build_props to {partition} ({prop_file.relative_to(self.ctx.target_dir)})"
-            )
+            self.logger.info(t('Applying build_props to %s (%s)'), partition, prop_file.relative_to(self.ctx.target_dir))
 
             content = prop_file.read_text(encoding="utf-8", errors="ignore")
             lines = content.splitlines()
@@ -172,11 +171,11 @@ class FeatureUnlockPlugin(ModifierPlugin):
                 if key in prop_indices:
                     idx = prop_indices[key]
                     if new_lines[idx] != new_entry:
-                        self.logger.debug(f"  Updating: {new_lines[idx]} -> {new_entry}")
+                        self.logger.debug(t('  Updating: %s -> %s'), new_lines[idx], new_entry)
                         new_lines[idx] = new_entry
                         modified = True
                 else:
-                    self.logger.debug(f"  Adding: {new_entry}")
+                    self.logger.debug(t('  Adding: %s'), new_entry)
                     new_lines.append(new_entry)
                     modified = True
 
@@ -185,7 +184,7 @@ class FeatureUnlockPlugin(ModifierPlugin):
 
     def _apply_eu_localization_props(self):
         """Apply EU localization properties."""
-        self.logger.info("Enabling EU Localization properties...")
+        self.logger.info(t('Enabling EU Localization properties...'))
         eu_cfg_path = Path("devices/common/eu_localization.json")
 
         if eu_cfg_path.exists():
@@ -195,4 +194,4 @@ class FeatureUnlockPlugin(ModifierPlugin):
                 eu_props = eu_config.get("build_props", {})
                 self._apply_build_props(eu_props, True)
             except Exception as e:
-                self.logger.error(f"Failed to apply EU localization props: {e}")
+                self.logger.error(t('Failed to apply EU localization props: %s'), e)

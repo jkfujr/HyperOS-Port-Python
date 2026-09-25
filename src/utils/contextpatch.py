@@ -4,6 +4,7 @@ from difflib import SequenceMatcher
 from pathlib import Path
 from re import sub
 from typing import Generator
+from src.utils.i18n import t
 
 
 class ContextPatcher:
@@ -35,7 +36,7 @@ class ContextPatcher:
                     filepath, *other = parts
                     context[filepath] = other
         except Exception as e:
-            self.logger.error(f"Error scanning context file {file}: {e}")
+            self.logger.error(t('Error scanning context file %s: %s'), file, e)
         return context
 
     def scan_dir(self, folder) -> Generator[str, None, None]:  
@@ -69,7 +70,7 @@ class ContextPatcher:
         permission_d = None
         dir_path_str = str(dir_path)
         
-        self.logger.info(f"Loaded {len(fs_file)} entries from origin context.")
+        self.logger.info(t('Loaded %s entries from origin context.'), len(fs_file))
         
         # Determine default permission based on partition
         try:
@@ -87,7 +88,7 @@ class ContextPatcher:
         if not permission_d:
             permission_d = ['u:object_r:system_file:s0']
             
-        self.logger.debug(f"Default permission set to: {permission_d}")
+        self.logger.debug(t('Default permission set to: %s'), permission_d)
 
         # Iterate through all files in the directory
         for i in self.scan_dir(os.path.abspath(dir_path_str)):
@@ -155,7 +156,7 @@ class ContextPatcher:
                 new_fs[safe_path] = permission
                 
                 # [DEBUG] Log the added entry
-                self.logger.debug(f"[NEW ENTRY] {i} -> {permission}")
+                self.logger.debug(t('[NEW ENTRY] %s -> %s'), i, permission)
 
         return new_fs, add_new
 
@@ -165,10 +166,10 @@ class ContextPatcher:
         fs_config_str = str(fs_config)
         
         if not os.path.exists(dir_path_str) or not os.path.exists(fs_config_str):
-            self.logger.warning(f"Path or config not found: {dir_path_str} | {fs_config_str}")
+            self.logger.warning(t('Path or config not found: %s | %s'), dir_path_str, fs_config_str)
             return
             
-        self.logger.info(f"Patching contexts for {os.path.basename(dir_path_str)}...")
+        self.logger.info(t('Patching contexts for %s...'), os.path.basename(dir_path_str))
         
         fs_file = self.scan_context(os.path.abspath(fs_config_str))
         new_fs, add_new = self.context_patch(fs_file, dir_path_str)
@@ -181,6 +182,6 @@ class ContextPatcher:
                     line = f"{path} {' '.join(new_fs[path])}\n"
                     f.write(line)
                     
-            self.logger.info(f"Context patch done. Added {add_new} new entries to {os.path.basename(fs_config_str)}.")
+            self.logger.info(t('Context patch done. Added %s new entries to %s.'), add_new, os.path.basename(fs_config_str))
         except Exception as e:
-            self.logger.error(f"Failed to write context file: {e}")
+            self.logger.error(t('Failed to write context file: %s'), e)

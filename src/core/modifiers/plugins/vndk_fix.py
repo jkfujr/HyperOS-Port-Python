@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Optional
 
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
+from src.utils.i18n import t
 
 
 @ModifierRegistry.register
@@ -54,12 +55,12 @@ class VNDKFixPlugin(ModifierPlugin):
         if stock_apex and target_apex_dir.exists():
             target_file = target_apex_dir / apex_name
             if not target_file.exists():
-                self.logger.info(f"Copying missing VNDK Apex: {apex_name}")
+                self.logger.info(t('Copying missing VNDK Apex: %s'), apex_name)
                 shutil.copy2(stock_apex, target_file)
 
     def _fix_vintf_manifest(self):
         """Fix VINTF manifest for VNDK version."""
-        self.logger.info("Checking VINTF manifest for VNDK version...")
+        self.logger.info(t('Checking VINTF manifest for VNDK version...'))
 
         vndk_version = self.ctx.stock.get_prop("ro.vndk.version")
         if not vndk_version:
@@ -74,7 +75,7 @@ class VNDKFixPlugin(ModifierPlugin):
                     pass
 
         if not vndk_version:
-            self.logger.warning("Could not determine VNDK version")
+            self.logger.warning(t('Could not determine VNDK version'))
             return
 
         target_xml = self._find_file_recursive(self.ctx.target_dir / "system_ext", "manifest.xml")
@@ -93,7 +94,7 @@ class VNDKFixPlugin(ModifierPlugin):
         if "</manifest>" in original_content:
             new_content = original_content.replace("</manifest>", f"{new_block}\n</manifest>")
             target_xml.write_text(new_content, encoding="utf-8")
-            self.logger.info(f"Injected VNDK {vndk_version} into manifest")
+            self.logger.info(t('Injected VNDK %s into manifest'), vndk_version)
 
     def _find_file_recursive(self, root_dir: Path, filename: str) -> Optional[Path]:
         if not root_dir.exists():

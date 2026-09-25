@@ -19,6 +19,7 @@ from src.core.packer import Repacker
 from src.core.rom import RomPackage
 from src.utils.downloader import RomDownloader
 from src.utils.otatools_manager import OtaToolsManager
+from src.utils.i18n import t
 
 DEFAULT_PHASES = ["system", "apk", "framework", "firmware"]
 REPACK_CHECKPOINT_NAME = "repack-context.json"
@@ -34,18 +35,18 @@ def resolve_remote_inputs(args, is_official_modify: bool, logger: logging.Logger
     """Download remote stock/port/bundle inputs in place when needed."""
     downloader = RomDownloader()
     if args.stock.startswith("http"):
-        logger.info("Downloading Stock ROM...")
+        logger.info(t('Downloading Stock ROM...'))
         args.stock = str(downloader.download(args.stock))
 
     if is_official_modify:
         args.port = args.stock
 
     if not is_official_modify and args.port.startswith("http"):
-        logger.info("Downloading Port ROM...")
+        logger.info(t('Downloading Port ROM...'))
         args.port = str(downloader.download(args.port))
 
     if args.eu_bundle and args.eu_bundle.startswith("http"):
-        logger.info("Downloading EU Bundle...")
+        logger.info(t('Downloading EU Bundle...'))
         args.eu_bundle = str(downloader.download(args.eu_bundle))
 
 
@@ -54,18 +55,18 @@ def log_run_configuration(
 ) -> None:
     """Log the resolved runtime configuration."""
     logger.info("=" * 70)
-    logger.info("HyperOS Porting Tool v2.0")
+    logger.info(t('HyperOS Porting Tool v2.0'))
     logger.info("=" * 70)
-    logger.info(f"Stock ROM: {args.stock}")
+    logger.info(t('Stock ROM: %s'), args.stock)
     if is_official_modify:
-        logger.info("Mode:      Official Modification")
+        logger.info(t('Mode:      Official Modification'))
     else:
-        logger.info(f"Port ROM:  {args.port}")
-    logger.info(f"KSU:       {args.ksu}")
-    logger.info(f"Work Dir:  {args.work_dir}")
+        logger.info(t('Port ROM:  %s'), args.port)
+    logger.info(t('KSU:       %s'), args.ksu)
+    logger.info(t('Work Dir:  %s'), args.work_dir)
     if args.phases:
-        logger.info(f"Phases:    {', '.join(args.phases)}")
-    logger.info(f"Cache:     {'Enabled' if cache_enabled else 'Disabled'}")
+        logger.info(t('Phases:    %s'), ', '.join(args.phases))
+    logger.info(t('Cache:     %s'), 'Enabled' if cache_enabled else 'Disabled')
     logger.info("=" * 70)
 
 
@@ -73,37 +74,30 @@ def determine_pack_settings(args, ctx: PortingContext, logger: logging.Logger) -
     """Determine final packing settings from CLI flags and device config."""
     enable_ksu = args.ksu or ctx.device_config.get("ksu", {}).get("enable", False)
     ctx.enable_ksu = enable_ksu
-    logger.info(
-        f"KernelSU: {'enabled' if enable_ksu else 'disabled'} "
-        f"(from {'CLI' if args.ksu else 'config'})"
-    )
+    logger.info(t('KernelSU: %s (from %s)'), 'enabled' if enable_ksu else 'disabled', 'CLI' if args.ksu else 'config')
 
     pack_cfg = ctx.device_config.get("pack", {})
     config_custom_avb_chain = False
     if isinstance(pack_cfg, dict):
         config_custom_avb_chain = bool(pack_cfg.get("custom_avb_chain", False))
     ctx.enable_custom_avb_chain = bool(args.custom_avb_chain or config_custom_avb_chain)
-    logger.info(
-        "Custom AVB chain: %s (from %s)",
-        "enabled" if ctx.enable_custom_avb_chain else "disabled",
-        "CLI" if args.custom_avb_chain else "config",
-    )
+    logger.info(t('Custom AVB chain: %s (from %s)'), 'enabled' if ctx.enable_custom_avb_chain else 'disabled', 'CLI' if args.custom_avb_chain else 'config')
 
     if hasattr(args, "avb_key") and args.avb_key:
         ctx.avb_key_path = Path(args.avb_key).resolve()
-        logger.info("Using custom AVB key: %s", ctx.avb_key_path)
+        logger.info(t('Using custom AVB key: %s'), ctx.avb_key_path)
 
     pack_type = args.pack_type or ctx.device_config.get("pack", {}).get("type", "payload")
     fs_type = args.fs_type or ctx.device_config.get("pack", {}).get("fs_type", "erofs")
-    logger.info(f"Pack Type: {pack_type} (from {'CLI' if args.pack_type else 'config'})")
-    logger.info(f"Filesystem: {fs_type} (from {'CLI' if args.fs_type else 'config'})")
+    logger.info(t('Pack Type: %s (from %s)'), pack_type, 'CLI' if args.pack_type else 'config')
+    logger.info(t('Filesystem: %s (from %s)'), fs_type, 'CLI' if args.fs_type else 'config')
     stock_rom_type = "unknown"
     stock = getattr(ctx, "stock", None)
     if stock is not None:
         rom_type = getattr(stock, "rom_type", None)
         if rom_type is not None:
             stock_rom_type = str(rom_type)
-    logger.info("Detected Stock ROM Type: %s", stock_rom_type)
+    logger.info(t('Detected Stock ROM Type: %s'), stock_rom_type)
     return pack_type, fs_type
 
 
@@ -111,21 +105,21 @@ def run_modification_phases(
     ctx: PortingContext, phases_to_run: list[str], logger: logging.Logger
 ) -> None:
     """Run the requested modification phases."""
-    logger.info(">>> Phase 3: Modifications")
+    logger.info(t('>>> Phase 3: Modifications'))
 
     if "system" in phases_to_run or "apk" in phases_to_run:
-        logger.info("Running Unified Modifier (System + APK)...")
+        logger.info(t('Running Unified Modifier (System + APK)...'))
         unified_modifier = UnifiedModifier(ctx, enable_apk_mods=("apk" in phases_to_run))
         unified_phases = [phase for phase in ("system", "apk") if phase in phases_to_run]
         if unified_phases and not unified_modifier.run(phases=unified_phases):
-            logger.warning("Some modifications failed, continuing...")
+            logger.warning(t('Some modifications failed, continuing...'))
 
     if "framework" in phases_to_run:
-        logger.info("Running Framework Modifier...")
+        logger.info(t('Running Framework Modifier...'))
         FrameworkModifier(ctx).run()
 
     if "firmware" in phases_to_run:
-        logger.info("Running Firmware Modifier...")
+        logger.info(t('Running Firmware Modifier...'))
         FirmwareModifier(ctx).run()
 
     RomModifier(ctx).run_all_modifications()
@@ -143,16 +137,16 @@ def run_repacking(
     if "repack" not in phases_to_run and phases_to_run != DEFAULT_PHASES:
         return
 
-    logger.info(">>> Phase 4: Repacking")
+    logger.info(t('>>> Phase 4: Repacking'))
     packer = Repacker(ctx)
     packer.pack_all(pack_type=fs_type.upper(), is_rw=(fs_type == "ext4"))
-    logger.info(f"All images packed successfully! Check {target_work_dir}/*.img")
+    logger.info(t('All images packed successfully! Check %s/*.img'), target_work_dir)
 
     if pack_type == "super":
-        logger.info("Generating Super Image...")
+        logger.info(t('Generating Super Image...'))
         packer.pack_super_image()
     else:
-        logger.info("Generating OTA Payload...")
+        logger.info(t('Generating OTA Payload...'))
         packer.pack_ota_payload()
 
 
@@ -223,7 +217,7 @@ def load_repack_checkpoint(work_dir: Path, target_work_dir: Path, logger: loggin
         enable_custom_avb_chain=False,
         get_target_prop_file=get_target_prop_file,
     )
-    logger.info("Loaded repack checkpoint from %s", path)
+    logger.info(t('Loaded repack checkpoint from %s'), path)
     return ctx
 
 
@@ -233,15 +227,7 @@ def log_diff_report_summary(diff_report: dict[str, object], logger: logging.Logg
     if not isinstance(summary, dict):
         summary = {}
 
-    logger.info(
-        "Artifact diff summary: +%s -%s ~%s props=%s apks=%s risks=%s",
-        summary.get("files_added", 0),
-        summary.get("files_removed", 0),
-        summary.get("files_modified", 0),
-        summary.get("prop_changes", 0),
-        summary.get("apk_changes", 0),
-        summary.get("risk_flags", 0),
-    )
+    logger.info(t('Artifact diff summary: +%s -%s ~%s props=%s apks=%s risks=%s'), summary.get('files_added', 0), summary.get('files_removed', 0), summary.get('files_modified', 0), summary.get('prop_changes', 0), summary.get('apk_changes', 0), summary.get('risk_flags', 0))
 
     highlights = diff_report.get("highlights", {})
     if not isinstance(highlights, dict):
@@ -258,7 +244,7 @@ def log_diff_report_summary(diff_report: dict[str, object], logger: logging.Logg
         if isinstance(code, str):
             codes.append(code)
     if codes:
-        logger.warning("Artifact diff risk flags: %s", ", ".join(codes))
+        logger.warning(t('Artifact diff risk flags: %s'), ', '.join(codes))
 
 
 def _to_int(value: object) -> int | None:
@@ -355,7 +341,7 @@ def execute_porting(args, logger: logging.Logger) -> int:
     """Execute the end-to-end porting workflow and return a process exit code."""
     is_official_modify = args.port is None
     if is_official_modify:
-        logger.info("No Port ROM provided. Entering Official Modification mode.")
+        logger.info(t('No Port ROM provided. Entering Official Modification mode.'))
         args.port = args.stock
 
     cache_bootstrap = initialize_cache_manager(args, is_official_modify, logger)
@@ -367,7 +353,7 @@ def execute_porting(args, logger: logging.Logger) -> int:
 
     otatools_manager = OtaToolsManager()
     if not otatools_manager.ensure_otatools():
-        logger.error("Failed to locate or download otatools. Exiting.")
+        logger.error(t('Failed to locate or download otatools. Exiting.'))
         return 1
 
     resolve_remote_inputs(args, is_official_modify, logger)
@@ -375,7 +361,7 @@ def execute_porting(args, logger: logging.Logger) -> int:
     work_dir, stock_work_dir, port_work_dir, target_work_dir = resolve_work_paths(args.work_dir)
 
     if getattr(args, "resume_from_packer", False):
-        logger.info("Resume mode: packer-only repacking from existing target workspace.")
+        logger.info(t('Resume mode: packer-only repacking from existing target workspace.'))
         try:
             ctx = load_repack_checkpoint(work_dir, target_work_dir, logger)
         except (FileNotFoundError, json.JSONDecodeError) as exc:
@@ -383,7 +369,7 @@ def execute_porting(args, logger: logging.Logger) -> int:
             return 2
         pack_type, fs_type = determine_pack_settings(args, ctx, logger)
         run_repacking(ctx, ["repack"], pack_type, fs_type, target_work_dir, logger)
-        logger.info("Repack-only resume completed successfully.")
+        logger.info(t('Repack-only resume completed successfully.'))
         return 0
 
     snapshot_manager = (
@@ -394,38 +380,38 @@ def execute_porting(args, logger: logging.Logger) -> int:
 
     if args.rollback_to_snapshot:
         if not snapshot_manager:
-            logger.error("Snapshot manager is not available.")
+            logger.error(t('Snapshot manager is not available.'))
             return 1
         try:
             snapshot_manager.restore(args.rollback_to_snapshot, target_work_dir)
-            logger.info(f"Rollback completed from snapshot: {args.rollback_to_snapshot}")
+            logger.info(t('Rollback completed from snapshot: %s'), args.rollback_to_snapshot)
             return 0
         except FileNotFoundError as exc:
             logger.error(str(exc))
             available = snapshot_manager.list_snapshot_names()
             if available:
-                logger.info(f"Available snapshots: {', '.join(available)}")
+                logger.info(t('Available snapshots: %s'), ', '.join(available))
             return 2
 
     if not args.skip_preflight:
         preflight_report = run_preflight(args, is_official_modify, logger)
         report_path = save_preflight_report(preflight_report, args.preflight_report)
-        logger.info(f"Preflight report saved to: {report_path}")
+        logger.info(t('Preflight report saved to: %s'), report_path)
         if preflight_report.has_failures(strict=args.preflight_strict):
             mode = "strict mode (blockers + risks)" if args.preflight_strict else "blockers"
-            logger.error(f"Preflight checks failed ({mode}). Aborting.")
+            logger.error(t('Preflight checks failed (%s). Aborting.'), mode)
             return 2
         if args.preflight_only:
-            logger.info("Preflight completed with no blockers. Exiting by request.")
+            logger.info(t('Preflight completed with no blockers. Exiting by request.'))
             return 0
     elif args.preflight_only:
-        logger.warning("Ignoring --preflight-only because --skip-preflight is set.")
+        logger.warning(t('Ignoring --preflight-only because --skip-preflight is set.'))
         return 0
 
     if args.clean:
         clean_work_dir(work_dir, logger)
 
-    logger.info(">>> Phase 1: Extraction")
+    logger.info(t('>>> Phase 1: Extraction'))
     stock = RomPackage(args.stock, stock_work_dir, label="Stock")
     stock.extract_images()
 
@@ -435,7 +421,7 @@ def execute_porting(args, logger: logging.Logger) -> int:
         port = RomPackage(args.port, port_work_dir, label="Port", cache_manager=cache_manager)
         port.extract_images(["system", "product", "system_ext", "mi_ext"])
 
-    logger.info(">>> Phase 2: Initialization")
+    logger.info(t('>>> Phase 2: Initialization'))
     ctx = PortingContext(stock, port, target_work_dir, is_official_modify=is_official_modify)
     ctx.cache_manager = cache_manager
     ctx.eu_bundle = args.eu_bundle
@@ -452,14 +438,9 @@ def execute_porting(args, logger: logging.Logger) -> int:
 
     device_config_dir = Path("devices") / stock_device_code
     if not device_config_dir.exists():
-        logger.info(
-            f"No device config found for {stock_device_code}, attempting auto-configuration..."
-        )
+        logger.info(t('No device config found for %s, attempting auto-configuration...'), stock_device_code)
     else:
-        logger.info(
-            "Detected existing device config for %s, ensuring partition_info.json is present.",
-            stock_device_code,
-        )
+        logger.info(t('Detected existing device config for %s, ensuring partition_info.json is present.'), stock_device_code)
     try:
         ctx.device_config = get_or_create_device_config(
             device_code=stock_device_code,
@@ -469,31 +450,27 @@ def execute_porting(args, logger: logging.Logger) -> int:
             payload_info=stock.payload_info,
         )
     except Exception as e:
-        logger.warning(f"Device config initialization failed: {e}")
-        logger.info("Falling back to common config")
+        logger.warning(t('Device config initialization failed: %s'), e)
+        logger.info(t('Falling back to common config'))
         ctx.device_config = load_device_config(stock_device_code, logger)
 
     super_size_check = build_super_size_check(stock_device_code, ctx.device_config)
     if super_size_check.get("mismatch"):
-        logger.warning(
-            "Detected super_size mismatch: config=%s, partition_info=%s",
-            super_size_check.get("device_config_super_size"),
-            super_size_check.get("partition_info_super_size"),
-        )
+        logger.warning(t('Detected super_size mismatch: config=%s, partition_info=%s'), super_size_check.get('device_config_super_size'), super_size_check.get('partition_info_super_size'))
 
     if cache_manager and ctx.device_config.get("cache", {}).get("partitions", False):
-        logger.info("Partition-level caching enabled by device config")
+        logger.info(t('Partition-level caching enabled by device config'))
         cache_manager.cache_partitions = True
 
     pack_type, fs_type = determine_pack_settings(args, ctx, logger)
     checkpoint_path = save_repack_checkpoint(ctx, work_dir)
-    logger.info("Saved repack checkpoint to: %s", checkpoint_path)
+    logger.info(t('Saved repack checkpoint to: %s'), checkpoint_path)
 
     work_dir.mkdir(parents=True, exist_ok=True)
     stock.export_props(work_dir / "stock_debug.prop")
     port.export_props(work_dir / "port_debug.prop")
-    logger.info(f"Stock Device: {stock.get_prop('ro.product.name_for_attestation')}")
-    logger.info(f"Port Device:  {port.get_prop('ro.product.name_for_attestation')}")
+    logger.info(t('Stock Device: %s'), stock.get_prop('ro.product.name_for_attestation'))
+    logger.info(t('Port Device:  %s'), port.get_prop('ro.product.name_for_attestation'))
 
     phases_to_run = args.phases if args.phases else list(DEFAULT_PHASES)
     baseline_artifact_state = (
@@ -511,15 +488,15 @@ def execute_porting(args, logger: logging.Logger) -> int:
         diff_report = generate_diff_report(baseline_artifact_state, final_artifact_state)
         inject_super_size_check_into_diff_report(diff_report, super_size_check)
         report_path = save_diff_report(diff_report, args.diff_report)
-        logger.info(f"Artifact diff report saved to: {report_path}")
+        logger.info(t('Artifact diff report saved to: %s'), report_path)
         log_diff_report_summary(diff_report, logger)
 
     logger.info("=" * 70)
-    logger.info("Porting completed successfully!")
+    logger.info(t('Porting completed successfully!'))
     if cache_manager:
         stats = cache_manager.get_cache_info()
         if stats["cached_roms"]:
             total_mb = stats.get("total_size_mb", 0)
-            logger.info(f"Cache: {len(stats['cached_roms'])} ROMs cached, {total_mb:.1f} MB total")
+            logger.info(t('Cache: %s ROMs cached, %.1f MB total'), len(stats['cached_roms']), total_mb)
     logger.info("=" * 70)
     return 0

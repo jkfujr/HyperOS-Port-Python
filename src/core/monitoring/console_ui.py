@@ -9,6 +9,7 @@ import threading
 import time
 from dataclasses import dataclass, field
 from typing import List, Optional
+from src.utils.i18n import t
 
 # Logger for diagnostic messages (not for UI output)
 logger = logging.getLogger(__name__)
@@ -176,7 +177,7 @@ class ConsoleReporter:
     def on_error(self, phase: str, error: str):
         """Called when an error occurs."""
         # Log error for diagnostics
-        logger.error("Error in %s: %s", phase, error)
+        logger.error(t('Error in %s: %s'), phase, error)
         # UI output: display error to user
         print(f"{self.style.error} Error in {phase}: {error}")
 

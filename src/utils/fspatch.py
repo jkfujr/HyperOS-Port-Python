@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+from src.utils.i18n import t
 
 logger = logging.getLogger("FsPatcher")
 
@@ -97,15 +98,15 @@ def patch_fs_config(target_dir: Path, fs_config_path: Path):
     fs_config_path = Path(fs_config_path).resolve()
     part_name = target_dir.name # e.g., mi_ext, vendor, system
 
-    logger.info(f"Patching fs_config for {part_name}...")
+    logger.info(t('Patching fs_config for %s...'), part_name)
 
     # 1. Read original config
     fs_data = load_fs_config(fs_config_path)
-    logger.debug(f"Loaded {len(fs_data)} entries from origin.")
+    logger.debug(t('Loaded %s entries from origin.'), len(fs_data))
 
     prefix = f"{part_name}"
     
-    logger.debug(f"Using prefix '{prefix}' for scan.")
+    logger.debug(t("Using prefix '%s' for scan."), prefix)
     # ==========================
 
     new_entries = 0
@@ -146,16 +147,16 @@ def patch_fs_config(target_dir: Path, fs_config_path: Path):
                 link_target = os.readlink(real_path)
                 attrs.append(link_target)
             except OSError:
-                logger.warning(f"Failed to read link: {real_path}")
+                logger.warning(t('Failed to read link: %s'), real_path)
                 continue
 
         # Write to dictionary
         fs_data[path_key] = attrs
         new_entries += 1
-        logger.debug(f"Added: {path_key} -> {attrs}")
+        logger.debug(t('Added: %s -> %s'), path_key, attrs)
 
     # 3. Write back to file (sorted by path)
-    logger.info(f"Added {new_entries} new entries to fs_config.")
+    logger.info(t('Added %s new entries to fs_config.'), new_entries)
     
     with open(fs_config_path, "w", encoding="utf-8", newline='\n') as f:
         for path in sorted(fs_data.keys()):

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from src.core.config_merger import ConfigMerger
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
+from src.utils.i18n import t
 
 
 @ModifierRegistry.register
@@ -27,7 +28,7 @@ class PropertyModifier(ModifierPlugin):
 
     def modify(self) -> bool:
         """Execute all property modification logic"""
-        self.logger.info("Starting build.prop modifications...")
+        self.logger.info(t('Starting build.prop modifications...'))
 
         try:
             # 1. Global codename and model replacement
@@ -55,11 +56,11 @@ class PropertyModifier(ModifierPlugin):
             # 6. Apply Custom Props from props.json (Highest Priority)
             self._apply_custom_props()
 
-            self.logger.info("Build.prop modifications completed.")
+            self.logger.info(t('Build.prop modifications completed.'))
             return True
         except Exception as e:
             # Catch-all for top-level modification method to prevent crashes
-            self.logger.error(f"Failed to apply property modifications: {e}")
+            self.logger.error(t('Failed to apply property modifications: %s'), e)
             return False
 
     def run(self):
@@ -108,9 +109,7 @@ class PropertyModifier(ModifierPlugin):
                     )
 
         if getattr(report, "loaded_files", None):
-            self.logger.debug(
-                "Loaded product prop sync config from: %s", ", ".join(report.loaded_files)
-            )
+            self.logger.debug(t('Loaded product prop sync config from: %s'), ', '.join(report.loaded_files))
         return skip_keys
 
     def _sync_product_build_prop_from_stock(self):
@@ -126,16 +125,16 @@ class PropertyModifier(ModifierPlugin):
         target_prop = self.ctx.target_dir / "product" / "etc" / "build.prop"
 
         if not stock_prop.exists():
-            self.logger.debug("Stock product/etc/build.prop not found, skipping product sync.")
+            self.logger.debug(t('Stock product/etc/build.prop not found, skipping product sync.'))
             return
         if not target_prop.exists():
-            self.logger.debug("Target product/etc/build.prop not found, skipping product sync.")
+            self.logger.debug(t('Target product/etc/build.prop not found, skipping product sync.'))
             return
 
         stock_props = self._parse_prop_map(stock_prop)
         target_props = self._parse_prop_map(target_prop)
         if not stock_props or not target_props:
-            self.logger.debug("No parsable properties for product sync, skipping.")
+            self.logger.debug(t('No parsable properties for product sync, skipping.'))
             return
 
         skip_keys = self._load_product_prop_sync_skip_keys()
@@ -155,12 +154,7 @@ class PropertyModifier(ModifierPlugin):
                 self._update_or_append_prop(target_prop, key, stock_value)
                 updates += 1
 
-        self.logger.info(
-            "Synced product build.prop from stock: updated=%s appended=%s skipped_protected=%s",
-            updates,
-            appends,
-            skipped_protected,
-        )
+        self.logger.info(t('Synced product build.prop from stock: updated=%s appended=%s skipped_protected=%s'), updates, appends, skipped_protected)
 
     def _apply_custom_props(self):
         """
@@ -173,23 +167,21 @@ class PropertyModifier(ModifierPlugin):
         ]
         valid_paths = [p for p in paths if p.exists()]
 
-        self.logger.debug(f"Checking props.json in paths: {valid_paths}")
+        self.logger.debug(t('Checking props.json in paths: %s'), valid_paths)
         config, report = self.merger.load_and_merge(valid_paths, "props.json")
         if not config:
-            self.logger.debug("No custom props.json found to apply.")
+            self.logger.debug(t('No custom props.json found to apply.'))
             return
 
-        self.logger.info(f"Applying custom properties from: {', '.join(report.loaded_files)}")
+        self.logger.info(t('Applying custom properties from: %s'), ', '.join(report.loaded_files))
         for partition, props in config.items():
             # Find the prop file for this partition
             prop_file = self.ctx.get_target_prop_file(partition)
             if not prop_file:
-                self.logger.warning(f"  Target prop file for partition '{partition}' not found.")
+                self.logger.warning(t("  Target prop file for partition '%s' not found."), partition)
                 continue
 
-            self.logger.info(
-                f"  Applying {len(props)} props to {partition} ({prop_file.relative_to(self.ctx.target_dir)})"
-            )
+            self.logger.info(t('  Applying %s props to %s (%s)'), len(props), partition, prop_file.relative_to(self.ctx.target_dir))
             for key, value in props.items():
                 self._update_or_append_prop(prop_file, key, value)
 
@@ -197,7 +189,7 @@ class PropertyModifier(ModifierPlugin):
         """
         Replace Port codename/model with Base codename/model globally in all build.prop files.
         """
-        self.logger.info("Performing global codename and model replacement...")
+        self.logger.info(t('Performing global codename and model replacement...'))
 
         # Source (Port) -> Target (Base)
         replacements = [
@@ -221,13 +213,13 @@ class PropertyModifier(ModifierPlugin):
                 if content != new_content:
                     prop_file.write_text(new_content, encoding="utf-8")
             except (IOError, OSError) as e:
-                self.logger.error(f"Failed to process {prop_file}: {e}")
+                self.logger.error(t('Failed to process %s: %s'), prop_file, e)
 
     def _reconstruct_props(self):
         """
         Reconstruct critical hardware properties from Stock ROM into Port ROM.
         """
-        self.logger.info("Reconstructing hardware properties from Base...")
+        self.logger.info(t('Reconstructing hardware properties from Base...'))
 
         # Properties to sync from stock to port
         sync_keys = [
@@ -271,19 +263,19 @@ class PropertyModifier(ModifierPlugin):
         base_code = self.ctx.stock_rom_code
         rom_version = self.ctx.target_rom_version
 
-        self.logger.debug(f"General Info Update: BaseCode={base_code}, ROMVersion={rom_version}")
+        self.logger.debug(t('General Info Update: BaseCode=%s, ROMVersion=%s'), base_code, rom_version)
 
         # Load Config
         config_path = Path("devices/common/props_global.json")
         if not config_path.exists():
-            self.logger.warning("props_global.json not found, skipping general info update.")
+            self.logger.warning(t('props_global.json not found, skipping general info update.'))
             return
 
         try:
             with open(config_path, "r") as f:
                 config = json.load(f)
         except (json.JSONDecodeError, IOError, OSError) as e:
-            self.logger.error(f"Failed to load props_global.json: {e}")
+            self.logger.error(t('Failed to load props_global.json: %s'), e)
             return
 
         # Prepare replacements
@@ -342,7 +334,7 @@ class PropertyModifier(ModifierPlugin):
                 for prefix, new_val in final_replacements.items():
                     if line.startswith(prefix):
                         if original_line.strip() != new_val:
-                            self.logger.debug(f"[{prop_file.name}] Replace: {line} -> {new_val}")
+                            self.logger.debug(t('[%s] Replace: %s -> %s'), prop_file.name, line, new_val)
                             new_lines.append(new_val + "\n")
                             file_changed = True
                         else:
@@ -354,7 +346,7 @@ class PropertyModifier(ModifierPlugin):
 
                 # 2. Delete logic
                 if line.startswith("ro.miui.density.primaryscale="):
-                    self.logger.debug(f"[{prop_file.name}] Remove: {line}")
+                    self.logger.debug(t('[%s] Remove: %s'), prop_file.name, line)
                     file_changed = True
                     continue
 
@@ -362,15 +354,13 @@ class PropertyModifier(ModifierPlugin):
 
             # Write back file
             if file_changed:
-                self.logger.debug(
-                    f"Writing changes to {prop_file.relative_to(self.ctx.target_dir)}"
-                )
+                self.logger.debug(t('Writing changes to %s'), prop_file.relative_to(self.ctx.target_dir))
                 with open(prop_file, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
 
     def _update_density(self):
         """Screen density modification"""
-        self.logger.info("Updating screen density...")
+        self.logger.info(t('Updating screen density...'))
 
         # 1. Get density from base
         base_density = None
@@ -382,9 +372,9 @@ class PropertyModifier(ModifierPlugin):
 
         if not base_density:
             base_density = "440"
-            self.logger.warning(f"Base density not found, defaulting to {base_density}")
+            self.logger.warning(t('Base density not found, defaulting to %s'), base_density)
         else:
-            self.logger.info(f"Found Base density: {base_density}")
+            self.logger.info(t('Found Base density: %s'), base_density)
 
         # 2. Modify porting package
         found_in_port = False
@@ -396,9 +386,7 @@ class PropertyModifier(ModifierPlugin):
 
             # Replace ro.sf.lcd_density
             if "ro.sf.lcd_density=" in content:
-                self.logger.debug(
-                    f"[{prop_file.name}] Updating ro.sf.lcd_density to {base_density}"
-                )
+                self.logger.debug(t('[%s] Updating ro.sf.lcd_density to %s'), prop_file.name, base_density)
                 new_content = re.sub(
                     r"ro\.sf\.lcd_density=.*", f"ro.sf.lcd_density={base_density}", new_content
                 )
@@ -406,9 +394,7 @@ class PropertyModifier(ModifierPlugin):
 
             # Replace persist.miui.density_v2
             if "persist.miui.density_v2=" in content:
-                self.logger.debug(
-                    f"[{prop_file.name}] Updating persist.miui.density_v2 to {base_density}"
-                )
+                self.logger.debug(t('[%s] Updating persist.miui.density_v2 to %s'), prop_file.name, base_density)
                 new_content = re.sub(
                     r"persist\.miui\.density_v2=.*",
                     f"persist.miui.density_v2={base_density}",
@@ -425,7 +411,7 @@ class PropertyModifier(ModifierPlugin):
 
     def _apply_specific_fixes(self):
         """Device-specific fixes (Millet, Blur, Cgroup, etc.)"""
-        self.logger.info("Applying device-specific fixes...")
+        self.logger.info(t('Applying device-specific fixes...'))
 
         # --- 1. cust_erofs ---
         product_prop = self.ctx.target_dir / "product/etc/build.prop"
@@ -435,10 +421,10 @@ class PropertyModifier(ModifierPlugin):
         # --- 2. Millet Fix ---
         millet_ver = self.ctx.stock.get_prop("ro.millet.netlink")
         if not millet_ver:
-            self.logger.warning("ro.millet.netlink not found in base, defaulting to 29")
+            self.logger.warning(t('ro.millet.netlink not found in base, defaulting to 29'))
             millet_ver = "29"
         else:
-            self.logger.debug(f"Found base millet version: {millet_ver}")
+            self.logger.debug(t('Found base millet version: %s'), millet_ver)
 
         self._update_or_append_prop(product_prop, "ro.millet.netlink", millet_ver)
 
@@ -451,7 +437,7 @@ class PropertyModifier(ModifierPlugin):
         if vendor_prop.exists():
             content = vendor_prop.read_text(encoding="utf-8", errors="ignore")
             if "persist.sys.millet.cgroup1" in content and "#persist" not in content:
-                self.logger.debug(f"[{vendor_prop.name}] Commenting out persist.sys.millet.cgroup1")
+                self.logger.debug(t('[%s] Commenting out persist.sys.millet.cgroup1'), vendor_prop.name)
                 content = content.replace(
                     "persist.sys.millet.cgroup1", "#persist.sys.millet.cgroup1"
                 )
@@ -472,7 +458,7 @@ class PropertyModifier(ModifierPlugin):
 
         if value is None:
             if match:
-                self.logger.debug(f"[{file_path.name}] Delete: {key}")
+                self.logger.debug(t('[%s] Delete: %s'), file_path.name, key)
                 new_content = pattern.sub("", content)
                 # Clean up potential double newlines
                 new_content = re.sub(r"\n\n+", "\n\n", new_content)
@@ -483,11 +469,11 @@ class PropertyModifier(ModifierPlugin):
 
         if match:
             if match.group(0) != replacement:
-                self.logger.debug(f"[{file_path.name}] Update: {key} -> {value}")
+                self.logger.debug(t('[%s] Update: %s -> %s'), file_path.name, key, value)
                 new_content = pattern.sub(replacement, content)
                 file_path.write_text(new_content, encoding="utf-8")
         else:
-            self.logger.debug(f"[{file_path.name}] Append: {key}={value}")
+            self.logger.debug(t('[%s] Append: %s=%s'), file_path.name, key, value)
             # Ensure file ends with newline before appending
             if content and not content.endswith("\n"):
                 content += "\n"
@@ -499,7 +485,7 @@ class PropertyModifier(ModifierPlugin):
         Regenerate ro.build.fingerprint and ro.build.description based on modified properties
         Format: Brand/Name/Device:Release/ID/Incremental:Type/Tags
         """
-        self.logger.info("Regenerating build fingerprint...")
+        self.logger.info(t('Regenerating build fingerprint...'))
 
         def get_current_prop(key, default=""):
             # Priority: product -> system -> vendor
@@ -524,19 +510,17 @@ class PropertyModifier(ModifierPlugin):
         build_type = get_current_prop("ro.build.type", "user")
         tags = get_current_prop("ro.build.tags", "release-keys")
 
-        self.logger.debug(
-            f"Fingerprint components: Brand={brand}, Name={name}, Device={device}, Ver={version}, ID={build_id}, Inc={incremental}"
-        )
+        self.logger.debug(t('Fingerprint components: Brand=%s, Name=%s, Device=%s, Ver=%s, ID=%s, Inc=%s'), brand, name, device, version, build_id, incremental)
 
         # Construct Fingerprint
         new_fingerprint = (
             f"{brand}/{name}/{device}:{version}/{build_id}/{incremental}:{build_type}/{tags}"
         )
-        self.logger.info(f"New Fingerprint: {new_fingerprint}")
+        self.logger.info(t('New Fingerprint: %s'), new_fingerprint)
 
         # Construct Description
         new_description = f"{name}-{build_type} {version} {build_id} {incremental} {tags}"
-        self.logger.debug(f"New Description: {new_description}")
+        self.logger.debug(t('New Description: %s'), new_description)
 
         # Write to all build.prop files
         replacements = {
@@ -578,9 +562,7 @@ class PropertyModifier(ModifierPlugin):
                     new_lines.append(original)
 
             if file_changed:
-                self.logger.debug(
-                    f"Updated fingerprint in {prop_file.relative_to(self.ctx.target_dir)}"
-                )
+                self.logger.debug(t('Updated fingerprint in %s'), prop_file.relative_to(self.ctx.target_dir))
                 with open(prop_file, "w", encoding="utf-8") as f:
                     f.writelines(new_lines)
 
@@ -589,13 +571,11 @@ class PropertyModifier(ModifierPlugin):
         Core allocation and scheduler optimization (supports sm8250, sm8450, sm8550 and Android version differences)
         Updated to use devices/common/scheduler.json
         """
-        self.logger.info("Optimizing core affinity and scheduler...")
+        self.logger.info(t('Optimizing core affinity and scheduler...'))
 
         product_prop = self.ctx.target_dir / "product/etc/build.prop"
         if not product_prop.exists():
-            self.logger.warning(
-                "product/etc/build.prop not found, skipping core affinity optimization."
-            )
+            self.logger.warning(t('product/etc/build.prop not found, skipping core affinity optimization.'))
             return
 
         # 1. Helper function: detect platform code
@@ -617,23 +597,21 @@ class PropertyModifier(ModifierPlugin):
         # 2. Load Configuration
         config_path = Path("devices/common/scheduler.json")
         if not config_path.exists():
-            self.logger.warning("scheduler.json not found, using empty config.")
+            self.logger.warning(t('scheduler.json not found, using empty config.'))
             config = {}
         else:
             try:
                 with open(config_path, "r") as f:
                     config = json.load(f)
             except (json.JSONDecodeError, IOError, OSError) as e:
-                self.logger.error(f"Failed to load scheduler.json: {e}")
+                self.logger.error(t('Failed to load scheduler.json: %s'), e)
                 return
 
         # 3. Get state
         platform = get_platform_code()
         android_ver = str(self.ctx.port_android_version)
 
-        self.logger.info(
-            f"Applying scheduling for Platform: [{platform}], Android: [{android_ver}]"
-        )
+        self.logger.info(t('Applying scheduling for Platform: [%s], Android: [%s]'), platform, android_ver)
 
         # 4. Match logic
         target_props = {}
@@ -647,6 +625,6 @@ class PropertyModifier(ModifierPlugin):
 
         # 5. Batch apply
         if target_props:
-            self.logger.debug(f"Applying {len(target_props)} scheduling properties...")
+            self.logger.debug(t('Applying %s scheduling properties...'), len(target_props))
             for key, value in target_props.items():
                 self._update_or_append_prop(product_prop, key, value)

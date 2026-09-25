@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from src.core.cache_manager import PortRomCacheManager
+from src.utils.i18n import t
 
 
 @dataclass
@@ -35,7 +36,7 @@ def setup_logging(level: int = logging.INFO) -> None:
 def clean_work_dir(work_dir: Path, logger: logging.Logger) -> None:
     """Remove and recreate the working directory."""
     if work_dir.exists():
-        logger.warning(f"Cleaning working directory: {work_dir}")
+        logger.warning(t('Cleaning working directory: %s'), work_dir)
         shutil.rmtree(work_dir)
     work_dir.mkdir(parents=True, exist_ok=True)
 
@@ -58,6 +59,6 @@ def initialize_cache_manager(
 
     if args.clear_cache:
         cache_manager.clear_all()
-        logger.info("Cache cleared")
+        logger.info(t('Cache cleared'))
 
     return CacheBootstrapResult(cache_manager=cache_manager)

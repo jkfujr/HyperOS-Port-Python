@@ -14,6 +14,7 @@ from src.core.modifiers.framework.patches import (
     RETRUN_FALSE,
     RETRUN_TRUE,
 )
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.context import PortingContext
@@ -34,11 +35,11 @@ class FrameworkTasks(FrameworkModifierBase):
         # Check cache first
         cached_jar = self._get_cached_jar("miui-services.jar")
         if cached_jar:
-            self.logger.info("Using cached modified miui-services.jar")
+            self.logger.info(t('Using cached modified miui-services.jar'))
             shutil.copy2(cached_jar, jar_path)
             return
 
-        self.logger.info(f"Modifying {jar_path.name}...")
+        self.logger.info(t('Modifying %s...'), jar_path.name)
         work_dir = self.temp_dir / "miui-services"
         self._apkeditor_decode(jar_path, work_dir)
 
@@ -125,11 +126,11 @@ class FrameworkTasks(FrameworkModifierBase):
         # Check cache first
         cached_jar = self._get_cached_jar("services.jar")
         if cached_jar:
-            self.logger.info("Using cached modified services.jar")
+            self.logger.info(t('Using cached modified services.jar'))
             shutil.copy2(cached_jar, jar_path)
             return
 
-        self.logger.info(f"Modifying {jar_path.name}...")
+        self.logger.info(t('Modifying %s...'), jar_path.name)
         work_dir = self.temp_dir / "services"
         shutil.copy2(jar_path, self.temp_dir / "services.jar.bak")
         self._apkeditor_decode(jar_path, work_dir)
@@ -183,7 +184,7 @@ class FrameworkTasks(FrameworkModifierBase):
         if not jar:
             return
 
-        self.logger.info(f"Modifying {jar.name} (PropsHook, PIF & SignBypass)...")
+        self.logger.info(t('Modifying %s (PropsHook, PIF & SignBypass)...'), jar.name)
 
         wd = self.temp_dir / "framework"
         self.shell.run_java_jar(
@@ -193,7 +194,7 @@ class FrameworkTasks(FrameworkModifierBase):
         # Inject PropsHook
         props_hook_zip = Path("devices/common/PropsHook.zip")
         if props_hook_zip.exists():
-            self.logger.info("Injecting PropsHook...")
+            self.logger.info(t('Injecting PropsHook...'))
             hook_tmp = self.temp_dir / "PropsHook"
             with zipfile.ZipFile(props_hook_zip, "r") as z:
                 z.extractall(hook_tmp)
@@ -206,7 +207,7 @@ class FrameworkTasks(FrameworkModifierBase):
                 )
                 self._copy_to_next_classes(wd, classes_out)
 
-        self.logger.info("Applying Signature Bypass Patches...")
+        self.logger.info(t('Applying Signature Bypass Patches...'))
 
         self._run_smalikit(
             path=str(wd),
@@ -297,7 +298,7 @@ class FrameworkTasks(FrameworkModifierBase):
         if pif_zip.exists():
             self._apply_pif_patch(wd, pif_zip)
         else:
-            self.logger.warning("pif_patch_v2.zip not found, skipping PIF injection.")
+            self.logger.warning(t('pif_patch_v2.zip not found, skipping PIF injection.'))
 
         # Hook PendingIntent for AutoCopy
         target_file = self._find_file(wd, "PendingIntent.smali")
@@ -321,9 +322,7 @@ class FrameworkTasks(FrameworkModifierBase):
         if int(self.ctx.port_android_version) >= 16:
             st_config = self._find_file(wd, "SoundTrigger$RecognitionConfig.smali")
             if st_config:
-                self.logger.info(
-                    f"Applying VoiceTrigger compatibility patch to {st_config.name}..."
-                )
+                self.logger.info(t('Applying VoiceTrigger compatibility patch to %s...'), st_config.name)
                 content = st_config.read_text(encoding="utf-8", errors="ignore")
 
                 field_def = ".field public captureRequested:Z"
@@ -332,7 +331,7 @@ class FrameworkTasks(FrameworkModifierBase):
                     if target_field in content:
                         content = content.replace(target_field, f"{target_field}\n{field_def}")
                         st_config.write_text(content, encoding="utf-8")
-                        self.logger.info("  -> Added field captureRequested")
+                        self.logger.info(t('  -> Added field captureRequested'))
 
                 constructor_sig = "<init>(ZZ[Landroid/hardware/soundtrigger/SoundTrigger$KeyphraseRecognitionExtra;[BI)V"
                 old_iput = "iput-boolean p1, p0, Landroid/hardware/soundtrigger/SoundTrigger$RecognitionConfig;->mCaptureRequested:Z"
@@ -353,10 +352,10 @@ class FrameworkTasks(FrameworkModifierBase):
 
         hook_helper = self._find_file(work_dir, "HookHelper.smali")
         if not hook_helper:
-            self.logger.warning("HookHelper.smali not found, creating new one...")
+            self.logger.warning(t('HookHelper.smali not found, creating new one...'))
             return
 
-        self.logger.info(f"Injecting implementation into {hook_helper.name}...")
+        self.logger.info(t('Injecting implementation into %s...'), hook_helper.name)
 
         smali_code = r"""
 .method public static onPendingIntentGetActivity(Landroid/content/Context;Landroid/content/Intent;)V
@@ -431,29 +430,29 @@ class FrameworkTasks(FrameworkModifierBase):
         if "onPendingIntentGetActivity" not in content:
             with open(hook_helper, "a", encoding="utf-8") as f:
                 f.write(smali_code)
-            self.logger.info("Added onPendingIntentGetActivity to HookHelper.")
+            self.logger.info(t('Added onPendingIntentGetActivity to HookHelper.'))
         else:
-            self.logger.info("onPendingIntentGetActivity already exists.")
+            self.logger.info(t('onPendingIntentGetActivity already exists.'))
 
     def _apply_pif_patch(self, work_dir: Path, pif_zip: Path) -> None:
         """Apply PIF (Play Integrity Fix) patch."""
         import re
 
-        self.logger.info("Applying PIF Patch (Instrumentation, KeyStoreSpi, AppPM)...")
+        self.logger.info(t('Applying PIF Patch (Instrumentation, KeyStoreSpi, AppPM)...'))
 
         temp_pif = self.temp_dir / "pif_classes"
         with zipfile.ZipFile(pif_zip, "r") as z:
             z.extractall(temp_pif)
         self._copy_to_next_classes(work_dir, temp_pif / "classes")
 
-        self.logger.info(f"Merging files from {temp_pif} to {self.ctx.target_dir}...")
+        self.logger.info(t('Merging files from %s to %s...'), temp_pif, self.ctx.target_dir)
 
         for item in temp_pif.iterdir():
             if item.name == "classes":
                 continue
 
             target_path = self.ctx.target_dir / item.name
-            self.logger.info(f"  Merging: {item.name} -> {target_path}")
+            self.logger.info(t('  Merging: %s -> %s'), item.name, target_path)
 
             if item.is_dir():
                 shutil.copytree(item, target_path, symlinks=True, dirs_exist_ok=True)
@@ -507,7 +506,7 @@ class FrameworkTasks(FrameworkModifierBase):
         # Hook AndroidKeyStoreSpi
         keystore_smali = self._find_file(work_dir, "AndroidKeyStoreSpi.smali")
         if keystore_smali:
-            self.logger.info("Hooking AndroidKeyStoreSpi...")
+            self.logger.info(t('Hooking AndroidKeyStoreSpi...'))
             self._run_smalikit(
                 file_path=str(keystore_smali),
                 method="engineGetCertificateChain",
@@ -520,7 +519,7 @@ class FrameworkTasks(FrameworkModifierBase):
         # Hook KeyStore2
         keystore2_smali = self._find_file(work_dir, "KeyStore2.smali")
         if keystore2_smali:
-            self.logger.info("Hooking KeyStore2...")
+            self.logger.info(t('Hooking KeyStore2...'))
             content = keystore2_smali.read_text(encoding="utf-8")
 
             delete_key_name = "deleteKey"
@@ -555,7 +554,7 @@ class FrameworkTasks(FrameworkModifierBase):
         # Hook KeyStoreSecurityLevel
         keystore_lvl_smali = self._find_file(work_dir, "KeyStoreSecurityLevel.smali")
         if keystore_lvl_smali:
-            self.logger.info("Hooking KeyStoreSecurityLevel...")
+            self.logger.info(t('Hooking KeyStoreSecurityLevel...'))
             content = keystore_lvl_smali.read_text(encoding="utf-8")
             gen_key_name = "generateKey"
 
@@ -577,9 +576,7 @@ class FrameworkTasks(FrameworkModifierBase):
                     start_num = int(start_reg[1:])
                     desc_reg = f"{start_prefix}{start_num + 2}"
                     args_reg = f"{start_prefix}{start_num + 4}"
-                    self.logger.info(
-                        f"  -> Extracted registers from range: desc={desc_reg}, args={args_reg}"
-                    )
+                    self.logger.info(t('  -> Extracted registers from range: desc=%s, args=%s'), desc_reg, args_reg)
 
                 ret_match = re.search(r"return-object\s+([vp]\d+)", body)
                 if ret_match:
@@ -598,7 +595,7 @@ class FrameworkTasks(FrameworkModifierBase):
         # Hook ApplicationPackageManager
         app_pm_smali = self._find_file(work_dir, "ApplicationPackageManager.smali")
         if app_pm_smali:
-            self.logger.info("Hooking ApplicationPackageManager...")
+            self.logger.info(t('Hooking ApplicationPackageManager...'))
             method_sig = "hasSystemFeature(Ljava/lang/String;I)Z"
             repl_pattern = (
                 r"invoke-static {p1, \1}, Lcom/android/internal/util/PropsHookUtils;->hasSystemFeature(Ljava/lang/String;Z)Z"
@@ -635,7 +632,7 @@ class FrameworkTasks(FrameworkModifierBase):
         if not epm_smali:
             return
 
-        self.logger.info("Injecting Custom Platform Key Check...")
+        self.logger.info(t('Injecting Custom Platform Key Check...'))
 
         hook_code = f"""
     # [Start] Custom Platform Key Check
@@ -671,14 +668,14 @@ class FrameworkTasks(FrameworkModifierBase):
         if not xeu_zip.exists():
             return
 
-        self.logger.info("Injecting Xiaomi.eu Toolbox...")
+        self.logger.info(t('Injecting Xiaomi.eu Toolbox...'))
 
         try:
             with zipfile.ZipFile(xeu_zip, "r") as z:
                 z.extractall(self.ctx.target_dir)
-            self.logger.info(f"Extracted {xeu_zip.name}")
+            self.logger.info(t('Extracted %s'), xeu_zip.name)
         except Exception as e:
-            self.logger.error(f"Failed to extract xeutoolbox: {e}")
+            self.logger.error(t('Failed to extract xeutoolbox: %s'), e)
             return
 
         target_files = [
@@ -693,9 +690,9 @@ class FrameworkTasks(FrameworkModifierBase):
                 try:
                     with open(f, "a", encoding="utf-8") as file:
                         file.write(context_line)
-                    self.logger.info(f"Updated contexts: {f.name}")
+                    self.logger.info(t('Updated contexts: %s'), f.name)
                 except Exception as e:
-                    self.logger.warning(f"Failed to append context to {f}: {e}")
+                    self.logger.warning(t('Failed to append context to %s: %s'), f, e)
 
         cil_file = self.ctx.target_dir / "system_ext/etc/selinux/system_ext_sepolicy.cil"
         policy_line = "\n(allow init toolbox_exec (file ((execute_no_trans))))\n"
@@ -704,6 +701,6 @@ class FrameworkTasks(FrameworkModifierBase):
             try:
                 with open(cil_file, "a", encoding="utf-8") as cil_handle:
                     cil_handle.write(policy_line)
-                self.logger.info(f"Updated sepolicy: {cil_file.name}")
+                self.logger.info(t('Updated sepolicy: %s'), cil_file.name)
             except Exception as e:
-                self.logger.warning(f"Failed to append policy to {cil_file}: {e}")
+                self.logger.warning(t('Failed to append policy to %s: %s'), cil_file, e)

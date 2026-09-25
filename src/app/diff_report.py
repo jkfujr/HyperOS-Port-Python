@@ -11,6 +11,7 @@ import subprocess
 from functools import lru_cache
 from pathlib import Path
 from typing import Any
+from src.utils.i18n import t
 
 PARTITION_KEYS = {
     "system",
@@ -130,10 +131,10 @@ def collect_artifact_state(root: str | Path, logger: logging.Logger) -> dict[str
     """Collect file, build.prop, and APK metadata state for diffing."""
     target = Path(root).resolve()
     if not target.exists():
-        logger.warning("Artifact state target does not exist: %s", target)
+        logger.warning(t('Artifact state target does not exist: %s'), target)
         return {"root": str(target), "files": {}, "build_props": {}, "apks": {}}
 
-    logger.info("Collecting artifact state from: %s", target)
+    logger.info(t('Collecting artifact state from: %s'), target)
     files, build_props, apks = _collect_state_entries(target)
     return {
         "root": str(target),

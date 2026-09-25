@@ -5,6 +5,7 @@ Disables cloud sync and enables GPU tuner.
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -20,7 +21,7 @@ class JoyoseModifier(ApkModifierPlugin):
     
     def _apply_patches(self, work_dir: Path):
         """Apply Joyose patches."""
-        self.logger.info("Processing Joyose.apk...")
+        self.logger.info(t('Processing Joyose.apk...'))
         
         # 1. Disable cloud sync
         self.smali_patch(

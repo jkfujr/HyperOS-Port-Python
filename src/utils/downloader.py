@@ -8,6 +8,7 @@ from pathlib import Path
 
 from src.utils.file_downloader import download_file
 from src.utils.shell import ShellRunner
+from src.utils.i18n import t
 
 
 class Aria2Manager:
@@ -31,16 +32,16 @@ class Aria2Manager:
         # 1. Check System PATH
         system_path = shutil.which(self.bin_name)
         if system_path:
-            self.logger.debug(f"Found system aria2c: {system_path}")
+            self.logger.debug(t('Found system aria2c: %s'), system_path)
             return Path(system_path)
 
         # 2. Check Local Bin
         if self.local_bin.exists():
-            self.logger.debug(f"Found local aria2c: {self.local_bin}")
+            self.logger.debug(t('Found local aria2c: %s'), self.local_bin)
             return self.local_bin
 
         # 3. Download if missing
-        self.logger.info("aria2c not found. Downloading static build...")
+        self.logger.info(t('aria2c not found. Downloading static build...'))
         return self._download_aria2()
 
     def _download_aria2(self) -> Path:
@@ -66,13 +67,13 @@ class Aria2Manager:
         archive_path = self.local_bin.parent / ("aria2.zip" if is_zip else "aria2.tar.gz")
         
         try:
-            self.logger.info(f"Downloading from {download_url}...")
+            self.logger.info(t('Downloading from %s...'), download_url)
             
             # Use shared downloader with progress bar
             if not download_file(download_url, archive_path, self.logger):
                 raise RuntimeError("Failed to download aria2 archive")
             
-            self.logger.info("Extracting...")
+            self.logger.info(t('Extracting...'))
             extracted_bin = None
             
             if is_zip:
@@ -100,7 +101,7 @@ class Aria2Manager:
             if self.system != "windows":
                 os.chmod(extracted_bin, 0o755)
                 
-            self.logger.info(f"aria2c installed to {extracted_bin}")
+            self.logger.info(t('aria2c installed to %s'), extracted_bin)
             
             # Cleanup
             archive_path.unlink()
@@ -108,7 +109,7 @@ class Aria2Manager:
             return extracted_bin
 
         except Exception as e:
-            self.logger.error(f"Failed to setup aria2c: {e}")
+            self.logger.error(t('Failed to setup aria2c: %s'), e)
             if archive_path.exists(): archive_path.unlink()
             raise e
 
@@ -144,12 +145,12 @@ class RomDownloader:
         target_path = self.rom_dir / filename
         
         if target_path.exists():
-            self.logger.info(f"File already exists: {target_path}")
+            self.logger.info(t('File already exists: %s'), target_path)
             # Optional: Add integrity check logic here if needed
             return target_path
 
-        self.logger.info(f"Downloading {filename}...")
-        self.logger.info(f"URL: {url}")
+        self.logger.info(t('Downloading %s...'), filename)
+        self.logger.info(t('URL: %s'), url)
         
         # Build aria2c command matching port.sh optimization
         cmd = [
@@ -172,9 +173,9 @@ class RomDownloader:
             if not target_path.exists():
                 raise FileNotFoundError("Download finished but file not found.")
                 
-            self.logger.info(f"Download completed: {target_path}")
+            self.logger.info(t('Download completed: %s'), target_path)
             return target_path
             
         except Exception as e:
-            self.logger.error(f"Download failed: {e}")
+            self.logger.error(t('Download failed: %s'), e)
             raise e

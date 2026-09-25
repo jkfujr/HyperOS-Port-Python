@@ -5,6 +5,7 @@ EU/CN specific patches for Settings.apk.
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -20,7 +21,7 @@ class SettingsModifier(ApkModifierPlugin):
     
     def _apply_patches(self, work_dir: Path):
         """Apply Settings patches based on ROM type."""
-        self.logger.info("Processing Settings.apk...")
+        self.logger.info(t('Processing Settings.apk...'))
         
         is_eu = getattr(self.ctx, "is_port_eu_rom", False)
         
@@ -31,7 +32,7 @@ class SettingsModifier(ApkModifierPlugin):
     
     def _apply_eu_patches(self, work_dir: Path):
         """Apply EU specific patches."""
-        self.logger.info("Applying EU specific patches...")
+        self.logger.info(t('Applying EU specific patches...'))
         
         # Unlock Google Button
         self.smali_patch(
@@ -43,7 +44,7 @@ class SettingsModifier(ApkModifierPlugin):
     
     def _apply_cn_patches(self, work_dir: Path):
         """Apply CN specific patches."""
-        self.logger.info("Applying CN specific patches...")
+        self.logger.info(t('Applying CN specific patches...'))
         
         # 1. Expand local register capacity
         self.smali_patch(
@@ -76,7 +77,7 @@ class SettingsModifier(ApkModifierPlugin):
     
     def _apply_notification_icon_xml(self, work_dir: Path):
         """Apply XML patches for notification icon counts (5 and 7)."""
-        self.logger.info("Applying notification icon XML patches...")
+        self.logger.info(t('Applying notification icon XML patches...'))
         
         res_dir = self.xml.get_res_dir(work_dir)
         
@@ -108,4 +109,4 @@ class SettingsModifier(ApkModifierPlugin):
             items=values_to_add
         )
         
-        self.logger.info("Notification icon XML patches applied")
+        self.logger.info(t('Notification icon XML patches applied'))

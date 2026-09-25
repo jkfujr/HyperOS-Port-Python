@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any, Dict, List
 
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
+from src.utils.i18n import t
 
 
 @ModifierRegistry.register
@@ -116,7 +117,7 @@ class EULocalizationPlugin(ModifierPlugin):
             if target_apk.exists():
                 app_dir = target_apk.parent
                 if app_dir.name not in protected_dirs:
-                    self.logger.info(f"Removing conflicting app: {app_dir}")
+                    self.logger.info(t('Removing conflicting app: %s'), app_dir)
                     shutil.rmtree(app_dir)
                 else:
                     target_apk.unlink()
@@ -125,7 +126,7 @@ class EULocalizationPlugin(ModifierPlugin):
         """Apply EU localization."""
         # If stock is CN, extract directly from stock
         if self._is_stock_cn():
-            self.logger.info("CN stock ROM detected, extracting EU apps directly...")
+            self.logger.info(t('CN stock ROM detected, extracting EU apps directly...'))
             return self._extract_from_stock()
 
         # Otherwise, use bundle
@@ -146,7 +147,7 @@ class EULocalizationPlugin(ModifierPlugin):
                     with open(config_path, "r", encoding="utf-8") as f:
                         return json.load(f)
                 except Exception as e:
-                    self.logger.warning(f"Failed to load config from {config_path}: {e}")
+                    self.logger.warning(t('Failed to load config from %s: %s'), config_path, e)
 
         return {"apps": []}
 
@@ -156,13 +157,13 @@ class EULocalizationPlugin(ModifierPlugin):
         apps_list = config.get("apps", [])
 
         if not apps_list:
-            self.logger.warning("No apps configured for EU localization extraction")
+            self.logger.warning(t('No apps configured for EU localization extraction'))
             return False
 
-        self.logger.info(f"Extracting {len(apps_list)} item(s) from CN stock...")
+        self.logger.info(t('Extracting %s item(s) from CN stock...'), len(apps_list))
 
         # First, remove conflicting apps from target
-        self.logger.info("Removing conflicting apps from target before extraction...")
+        self.logger.info(t('Removing conflicting apps from target before extraction...'))
         for item in apps_list:
             pkg_name = None
             app_path_str = None
@@ -187,17 +188,13 @@ class EULocalizationPlugin(ModifierPlugin):
                     for apk_file in stock_path.rglob("*.apk"):
                         stock_pkg = self.ctx.syncer._get_apk_package_name(apk_file)
                         if stock_pkg:
-                            self.logger.debug(
-                                f"Found package {stock_pkg} from stock path {app_path_str}"
-                            )
+                            self.logger.debug(t('Found package %s from stock path %s'), stock_pkg, app_path_str)
                             # Find and remove all matching APKs in target
                             target_apks = self.ctx.syncer.find_apks_by_package(
                                 stock_pkg, self.ctx.target_dir
                             )
                             if target_apks:
-                                self.logger.info(
-                                    f"Removing conflicting app by path {app_path_str} (package: {stock_pkg})"
-                                )
+                                self.logger.info(t('Removing conflicting app by path %s (package: %s)'), app_path_str, stock_pkg)
                                 self._remove_target_apks(target_apks)
                             break
                 elif stock_path.exists() and stock_path.suffix == ".apk":
@@ -207,9 +204,7 @@ class EULocalizationPlugin(ModifierPlugin):
                             stock_pkg, self.ctx.target_dir
                         )
                         if target_apks:
-                            self.logger.info(
-                                f"Removing conflicting app by path {app_path_str} (package: {stock_pkg})"
-                            )
+                            self.logger.info(t('Removing conflicting app by path %s (package: %s)'), app_path_str, stock_pkg)
                             self._remove_target_apks(target_apks)
 
         extracted_count = 0
@@ -232,7 +227,7 @@ class EULocalizationPlugin(ModifierPlugin):
                     pkg_name, self.ctx.stock.extracted_dir
                 )
                 if matches:
-                    self.logger.debug(f"Found package {pkg_name} at {len(matches)} location(s)")
+                    self.logger.debug(t('Found package %s at %s location(s)'), pkg_name, len(matches))
                     for apk_path in matches:
                         parent = apk_path.parent
                         protected_dirs = {
@@ -265,7 +260,7 @@ class EULocalizationPlugin(ModifierPlugin):
                             break
 
             if not found_srcs:
-                self.logger.warning(f"App not found in CN stock: {item}")
+                self.logger.warning(t('App not found in CN stock: %s'), item)
                 continue
 
             # Copy found sources to target
@@ -274,7 +269,7 @@ class EULocalizationPlugin(ModifierPlugin):
                 try:
                     rel_to_extracted = src.relative_to(self.ctx.stock.extracted_dir)
                 except ValueError:
-                    self.logger.error(f"Path {src} is not in stock extracted dir, skipping")
+                    self.logger.error(t('Path %s is not in stock extracted dir, skipping'), src)
                     continue
 
                 # Handle SAR (System-as-Root) double-folder structure
@@ -294,17 +289,17 @@ class EULocalizationPlugin(ModifierPlugin):
                     else:
                         shutil.copy2(src, dest_path)
 
-                    self.logger.info(f"Extracted: {Path(*path_parts)}")
+                    self.logger.info(t('Extracted: %s'), Path(*path_parts))
                     extracted_items.append(dest_path)
                     extracted_count += 1
                 except Exception as e:
-                    self.logger.error(f"Failed to copy {src} to {dest_path}: {e}")
+                    self.logger.error(t('Failed to copy %s to %s: %s'), src, dest_path, e)
 
         if extracted_count == 0:
-            self.logger.warning("No apps extracted from CN stock")
+            self.logger.warning(t('No apps extracted from CN stock'))
             return False
 
-        self.logger.info(f"Successfully extracted {extracted_count} item(s) from CN stock")
+        self.logger.info(t('Successfully extracted %s item(s) from CN stock'), extracted_count)
 
         return True
 
@@ -312,10 +307,10 @@ class EULocalizationPlugin(ModifierPlugin):
         """Apply EU localization from pre-generated bundle."""
         bundle_path = Path(self.ctx.eu_bundle)
         if not bundle_path.exists():
-            self.logger.warning(f"EU Bundle not found at {bundle_path}")
+            self.logger.warning(t('EU Bundle not found at %s'), bundle_path)
             return False
 
-        self.logger.info(f"Applying EU Localization Bundle from {bundle_path}...")
+        self.logger.info(t('Applying EU Localization Bundle from %s...'), bundle_path)
 
         with tempfile.TemporaryDirectory(prefix="eu_bundle_") as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -324,21 +319,21 @@ class EULocalizationPlugin(ModifierPlugin):
                 with zipfile.ZipFile(bundle_path, "r") as z:
                     z.extractall(tmp_path)
             except Exception as e:
-                self.logger.error(f"Failed to extract EU bundle: {e}")
+                self.logger.error(t('Failed to extract EU bundle: %s'), e)
                 return False
 
             # Find and replace EU apps
             self._replace_eu_apps(tmp_path)
 
             # Merge bundle files
-            self.logger.info("Merging EU Bundle files into Target ROM...")
+            self.logger.info(t('Merging EU Bundle files into Target ROM...'))
             shutil.copytree(tmp_path, self.ctx.target_dir, dirs_exist_ok=True)
 
         return True
 
     def _replace_eu_apps(self, bundle_path: Path):
         """Replace existing apps with EU versions."""
-        self.logger.info("Scanning for APKs to replace in target ROM...")
+        self.logger.info(t('Scanning for APKs to replace in target ROM...'))
 
         # Clear syncer package cache to ensure fresh lookup in target_dir
         self.ctx.syncer._target_package_cache = {}
@@ -352,7 +347,7 @@ class EULocalizationPlugin(ModifierPlugin):
                     bundle_packages[pkg_name] = []
                 bundle_packages[pkg_name].append(apk_file)
 
-        self.logger.info(f"Found {len(bundle_packages)} unique package(s) to process.")
+        self.logger.info(t('Found %s unique package(s) to process.'), len(bundle_packages))
 
         # 2. For each unique package, find and remove original app in target ROM
         for pkg_name, bundle_apks in bundle_packages.items():
@@ -362,16 +357,14 @@ class EULocalizationPlugin(ModifierPlugin):
                 # Log version comparison
                 target_ver = self._get_apk_version(target_apks[0])
                 bundle_ver = self._get_apk_version(bundle_apks[0])
-                self.logger.info(
-                    f"Replacing EU App: {pkg_name} [Target: {target_ver} -> Bundle: {bundle_ver}]"
-                )
+                self.logger.info(t('Replacing EU App: %s [Target: %s -> Bundle: %s]'), pkg_name, target_ver, bundle_ver)
 
                 for target_apk in target_apks:
                     if not target_apk.exists():
                         continue
 
                     app_dir = target_apk.parent
-                    self.logger.info(f"  - Found at: {target_apk.relative_to(self.ctx.target_dir)}")
+                    self.logger.info(t('  - Found at: %s'), target_apk.relative_to(self.ctx.target_dir))
 
                     # Safety check: avoid deleting root partition dirs
                     protected_dirs = {
@@ -389,15 +382,13 @@ class EULocalizationPlugin(ModifierPlugin):
                     }
 
                     if app_dir.name not in protected_dirs:
-                        self.logger.debug(f"  - Removing directory: {app_dir}")
+                        self.logger.debug(t('  - Removing directory: %s'), app_dir)
                         try:
                             shutil.rmtree(app_dir)
                         except Exception as e:
-                            self.logger.error(f"  - Failed to remove {app_dir}: {e}")
+                            self.logger.error(t('  - Failed to remove %s: %s'), app_dir, e)
                     else:
-                        self.logger.debug(
-                            f"  - Removing single file (protected parent): {target_apk}"
-                        )
+                        self.logger.debug(t('  - Removing single file (protected parent): %s'), target_apk)
                         target_apk.unlink()
             else:
-                self.logger.debug(f"Adding new EU App: {pkg_name} (no match in target)")
+                self.logger.debug(t('Adding new EU App: %s (no match in target)'), pkg_name)

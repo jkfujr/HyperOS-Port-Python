@@ -41,6 +41,7 @@ from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Union
+from src.utils.i18n import t
 
 # Cache format version
 CACHE_VERSION = "1.0"
@@ -103,7 +104,7 @@ class FileLock:
             try:
                 self._lock_fd = open(self.lock_file, "w")
                 fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
-                self._logger.debug(f"Lock acquired: {self.lock_file}")
+                self._logger.debug(t('Lock acquired: %s'), self.lock_file)
                 return True
             except (IOError, OSError) as err:
                 if self._lock_fd:
@@ -111,7 +112,7 @@ class FileLock:
                     self._lock_fd = None
 
                 if time.time() - start_time > self.timeout:
-                    self._logger.warning(f"Lock timeout after {self.timeout}s")
+                    self._logger.warning(t('Lock timeout after %ss'), self.timeout)
                     raise TimeoutError(
                         f"Could not acquire lock: {self.lock_file}"
                     ) from err
@@ -126,9 +127,9 @@ class FileLock:
             try:
                 fcntl.flock(self._lock_fd.fileno(), fcntl.LOCK_UN)
                 self._lock_fd.close()
-                self._logger.debug(f"Lock released: {self.lock_file}")
+                self._logger.debug(t('Lock released: %s'), self.lock_file)
             except Exception as e:
-                self._logger.error(f"Error releasing lock: {e}")
+                self._logger.error(t('Error releasing lock: %s'), e)
             finally:
                 self._lock_fd = None
 
@@ -183,9 +184,9 @@ class PortRomCacheManager:
         # Partition-level caching switch (disabled by default)
         self.cache_partitions = cache_partitions
         if cache_partitions:
-            self.logger.info("Partition-level caching enabled")
+            self.logger.info(t('Partition-level caching enabled'))
         else:
-            self.logger.info("Partition-level caching disabled (APK caching still active)")
+            self.logger.info(t('Partition-level caching disabled (APK caching still active)'))
 
         # Ensure metadata directory exists
         self._metadata_file = self.cache_root / "metadata.json"
@@ -198,7 +199,7 @@ class PortRomCacheManager:
                 with open(self._metadata_file, "r", encoding="utf-8") as f:
                     self._global_metadata = json.load(f)
             except (json.JSONDecodeError, IOError) as e:
-                self.logger.warning(f"Failed to load global metadata: {e}")
+                self.logger.warning(t('Failed to load global metadata: %s'), e)
                 self._global_metadata = {"version": CACHE_VERSION, "roms": {}}
         else:
             self._global_metadata = {"version": CACHE_VERSION, "roms": {}}
@@ -209,7 +210,7 @@ class PortRomCacheManager:
             with open(self._metadata_file, "w", encoding="utf-8") as f:
                 json.dump(self._global_metadata, f, indent=2)
         except IOError as e:
-            self.logger.error(f"Failed to save global metadata: {e}")
+            self.logger.error(t('Failed to save global metadata: %s'), e)
 
     def _compute_rom_hash(self, rom_path: Union[str, Path]) -> str:
         """
@@ -308,7 +309,7 @@ class PortRomCacheManager:
 
             # Check version compatibility
             if metadata.version != CACHE_VERSION:
-                self.logger.debug(f"Cache version mismatch: {metadata.version} vs {CACHE_VERSION}")
+                self.logger.debug(t('Cache version mismatch: %s vs %s'), metadata.version, CACHE_VERSION)
                 return False
 
             # Check cache directory is non-empty
@@ -318,7 +319,7 @@ class PortRomCacheManager:
             return True
 
         except (json.JSONDecodeError, IOError, KeyError) as e:
-            self.logger.debug(f"Cache validation failed: {e}")
+            self.logger.debug(t('Cache validation failed: %s'), e)
             return False
 
     def store_partition(
@@ -341,7 +342,7 @@ class PortRomCacheManager:
             True if storage successful
         """
         if not self.cache_partitions:
-            self.logger.debug(f"Partition caching disabled, skipping cache store for {partition}")
+            self.logger.debug(t('Partition caching disabled, skipping cache store for %s'), partition)
             return False
 
         rom_hash = self._compute_rom_hash(rom_path)
@@ -394,14 +395,11 @@ class PortRomCacheManager:
                 }
                 self._save_global_metadata()
 
-                self.logger.info(
-                    f"Cached partition {partition}: {file_count} files, "
-                    f"{total_size / 1024 / 1024:.1f} MB"
-                )
+                self.logger.info(t('Cached partition %s: %s files, %.1f MB'), partition, file_count, total_size / 1024 / 1024)
                 return True
 
             except Exception as e:
-                self.logger.error(f"Failed to cache partition {partition}: {e}")
+                self.logger.error(t('Failed to cache partition %s: %s'), partition, e)
                 # Clean failed cache
                 if cache_dir.exists():
                     shutil.rmtree(cache_dir)
@@ -444,11 +442,11 @@ class PortRomCacheManager:
                     dst.parent.mkdir(parents=True, exist_ok=True)
                     shutil.copy2(item, dst, follow_symlinks=False)
 
-            self.logger.info(f"Restored partition {partition} from cache")
+            self.logger.info(t('Restored partition %s from cache'), partition)
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to restore partition {partition}: {e}")
+            self.logger.error(t('Failed to restore partition %s: %s'), partition, e)
             return False
 
     def get_cache_info(self) -> Dict[str, Any]:
@@ -501,7 +499,7 @@ class PortRomCacheManager:
             info["total_size_mb"] = round(info["total_size_bytes"] / 1024 / 1024, 2)
 
         except Exception as e:
-            self.logger.error(f"Error getting cache info: {e}")
+            self.logger.error(t('Error getting cache info: %s'), e)
 
         return info
 
@@ -531,12 +529,12 @@ class PortRomCacheManager:
             with FileLock(lock_file):
                 if cache_dir.exists():
                     shutil.rmtree(cache_dir)
-                    self.logger.info(f"Cleared cache for partition {partition}")
+                    self.logger.info(t('Cleared cache for partition %s'), partition)
                     return True
             return False
 
         except Exception as e:
-            self.logger.error(f"Failed to clear partition cache: {e}")
+            self.logger.error(t('Failed to clear partition cache: %s'), e)
             return False
 
     def clear_rom(self, rom_path: Union[str, Path]) -> bool:
@@ -563,11 +561,11 @@ class PortRomCacheManager:
                     del self._global_metadata["roms"][rom_hash]
                     self._save_global_metadata()
 
-                self.logger.info(f"Cleared all cache for ROM {rom_hash[:16]}...")
+                self.logger.info(t('Cleared all cache for ROM %s...'), rom_hash[:16])
                 return True
 
         except Exception as e:
-            self.logger.error(f"Failed to clear ROM cache: {e}")
+            self.logger.error(t('Failed to clear ROM cache: %s'), e)
             return False
 
     def clear_all(self) -> bool:
@@ -587,11 +585,11 @@ class PortRomCacheManager:
             self._global_metadata = {"version": CACHE_VERSION, "roms": {}}
             self._save_global_metadata()
 
-            self.logger.info("Cleared all cache")
+            self.logger.info(t('Cleared all cache'))
             return True
 
         except Exception as e:
-            self.logger.error(f"Failed to clear all cache: {e}")
+            self.logger.error(t('Failed to clear all cache: %s'), e)
             return False
 
     def verify_integrity(self, rom_path: Optional[Union[str, Path]] = None) -> Dict[str, Any]:

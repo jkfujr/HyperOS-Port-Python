@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -23,29 +24,29 @@ class HTMLViewerModifier(ApkModifierPlugin):
 
         is_eu = getattr(self.ctx, "is_port_eu_rom", False)
         if not is_eu:
-            self.logger.debug("Not an EU ROM, skipping HTMLViewer modification")
+            self.logger.debug(t('Not an EU ROM, skipping HTMLViewer modification'))
             return False
 
         return True
 
     def _apply_patches(self, work_dir: Path):
-        self.logger.info("Applying EU HTMLViewer patches...")
+        self.logger.info(t('Applying EU HTMLViewer patches...'))
         self._patch_device_info_utils(work_dir)
 
     def _patch_device_info_utils(self, work_dir: Path):
         smali_file = self._find_file(work_dir, "MiuiDeviceInfoUtils$AsyncTask.smali")
 
         if not smali_file:
-            self.logger.warning("MiuiDeviceInfoUtils$AsyncTask.smali not found")
+            self.logger.warning(t('MiuiDeviceInfoUtils$AsyncTask.smali not found'))
             return
 
         content = smali_file.read_text(encoding="utf-8")
 
         if "doInBackground([Landroid/util/Pair;)Ljava/lang/Object;" not in content:
-            self.logger.warning("doInBackground method not found")
+            self.logger.warning(t('doInBackground method not found'))
             return
 
-        self.logger.info("Patching MiuiDeviceInfoUtils$AsyncTask.smali...")
+        self.logger.info(t('Patching MiuiDeviceInfoUtils$AsyncTask.smali...'))
 
         do_in_background_remake = """.locals 16
     .annotation system Ldalvik/annotation/Signature;
@@ -324,4 +325,4 @@ class HTMLViewerModifier(ApkModifierPlugin):
             append_method=(helper_signature, helper_method),
         )
 
-        self.logger.info("Patched MiuiDeviceInfoUtils$AsyncTask.smali successfully")
+        self.logger.info(t('Patched MiuiDeviceInfoUtils$AsyncTask.smali successfully'))

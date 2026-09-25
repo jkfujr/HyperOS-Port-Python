@@ -12,6 +12,7 @@ from typing import List
 
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
 from src.utils.download import AssetDownloader
+from src.utils.i18n import t
 
 
 @ModifierRegistry.register
@@ -37,11 +38,11 @@ class WildBoostPlugin(ModifierPlugin):
 
         self.shell = ShellRunner()
 
-        self.logger.info("Wild Boost is enabled...")
+        self.logger.info(t('Wild Boost is enabled...'))
 
         # 1. Install kernel modules
         if not self._install_kernel_modules():
-            self.logger.error("Failed to install kernel modules")
+            self.logger.error(t('Failed to install kernel modules'))
             return False
 
         # 2. Apply HexPatch to libmigui.so
@@ -49,7 +50,7 @@ class WildBoostPlugin(ModifierPlugin):
 
         # 3. Fallback: Add persist.sys.feas.enable=true
         if not hexpatch_success:
-            self.logger.info("Adding persist.sys.feas.enable=true as fallback...")
+            self.logger.info(t('Adding persist.sys.feas.enable=true as fallback...'))
             self._add_feas_property()
 
         return True
@@ -65,7 +66,7 @@ class WildBoostPlugin(ModifierPlugin):
 
         kmi = self._analyze_kmi(boot_img)
         if kmi:
-            self.logger.info(f"Detected full KMI version: {kmi}")
+            self.logger.info(t('Detected full KMI version: %s'), kmi)
             return kmi
         return "unknown"
 
@@ -122,7 +123,7 @@ class WildBoostPlugin(ModifierPlugin):
         """Install wild_boost kernel modules with KMI matching."""
         kmi_version = self._get_kernel_version()
         if kmi_version == "unknown":
-            self.logger.error("Cannot detect kernel version, wild_boost modules skipped.")
+            self.logger.error(t('Cannot detect kernel version, wild_boost modules skipped.'))
             return False
 
         # Extract main version (e.g., 5.15) for fallback
@@ -150,11 +151,11 @@ class WildBoostPlugin(ModifierPlugin):
                 break
 
         if not matching_zip:
-            self.logger.error(f"No matching wild_boost package found for {kmi_version}")
-            self.logger.error(f"Searched for: {[c.name for c in candidates]}")
+            self.logger.error(t('No matching wild_boost package found for %s'), kmi_version)
+            self.logger.error(t('Searched for: %s'), [c.name for c in candidates])
             return False
 
-        self.logger.info(f"Using wild_boost package: {matching_zip.name} (match for {kmi_version})")
+        self.logger.info(t('Using wild_boost package: %s (match for %s)'), matching_zip.name, kmi_version)
 
         with tempfile.TemporaryDirectory(prefix="wild_boost_") as tmp_dir:
             tmp_path = Path(tmp_dir)
@@ -162,15 +163,15 @@ class WildBoostPlugin(ModifierPlugin):
                 with zipfile.ZipFile(matching_zip, "r") as z:
                     z.extractall(tmp_path)
             except Exception as e:
-                self.logger.error(f"Failed to extract wild_boost zip: {e}")
+                self.logger.error(t('Failed to extract wild_boost zip: %s'), e)
                 return False
 
             ko_files = list(tmp_path.rglob("*.ko"))
             if not ko_files:
-                self.logger.error("No kernel modules (*.ko) found in zip.")
+                self.logger.error(t('No kernel modules (*.ko) found in zip.'))
                 return False
 
-            self.logger.info(f"Found {len(ko_files)} modules: {[f.name for f in ko_files]}")
+            self.logger.info(t('Found %s modules: %s'), len(ko_files), [f.name for f in ko_files])
 
             # Auto-detect installation location
             vendor_dlkm_dir = self.ctx.target_dir / "vendor_dlkm"
@@ -180,16 +181,16 @@ class WildBoostPlugin(ModifierPlugin):
             elif vendor_dlkm_dir.exists():
                 return self._install_vendor_dlkm(ko_files)
             else:
-                self.logger.error("No suitable location (vendor_boot/vendor_dlkm) found.")
+                self.logger.error(t('No suitable location (vendor_boot/vendor_dlkm) found.'))
                 return False
 
     def _install_vendor_boot(self, ko_files: List[Path]) -> bool:
         """Install wild_boost modules to vendor_boot ramdisk."""
-        self.logger.info(f"Installing {len(ko_files)} modules to vendor_boot ramdisk...")
+        self.logger.info(t('Installing %s modules to vendor_boot ramdisk...'), len(ko_files))
 
         vendor_boot_img = self.ctx.repack_images_dir / "vendor_boot.img"
         if not vendor_boot_img.exists():
-            self.logger.error("vendor_boot.img not found.")
+            self.logger.error(t('vendor_boot.img not found.'))
             return False
 
         # Create temp directory for unpacking
@@ -232,12 +233,12 @@ class WildBoostPlugin(ModifierPlugin):
             else:
                 modules_dir_rel = modules_load_files[0].parent.relative_to(work_dir)
 
-            self.logger.info(f"Modules directory in ramdisk: {modules_dir_rel}")
+            self.logger.info(t('Modules directory in ramdisk: %s'), modules_dir_rel)
 
             # 1. Add/Replace modules in CPIO
             for ko_file in ko_files:
                 dest_path = modules_dir_rel / ko_file.name
-                self.logger.info(f"  Adding/Replacing: {dest_path}")
+                self.logger.info(t('  Adding/Replacing: %s'), dest_path)
                 self.shell.run(
                     [
                         str(self.ctx.tools.magiskboot),
@@ -262,7 +263,7 @@ class WildBoostPlugin(ModifierPlugin):
                         modified = True
 
                 if modified:
-                    self.logger.info(f"  Updating load file: {load_rel}")
+                    self.logger.info(t('  Updating load file: %s'), load_rel)
                     load_file.write_text("\n".join(lines) + "\n")
                     self.shell.run(
                         [
@@ -277,7 +278,7 @@ class WildBoostPlugin(ModifierPlugin):
             # 3. Update modules.dep
             dep_file = work_dir / modules_dir_rel / "modules.dep"
             if dep_file.exists():
-                self.logger.info("  Updating modules.dep...")
+                self.logger.info(t('  Updating modules.dep...'))
                 content = dep_file.read_text(errors="ignore")
                 lines = content.splitlines()
 
@@ -359,7 +360,7 @@ class WildBoostPlugin(ModifierPlugin):
                 )
 
             # 4. Repack
-            self.logger.info("Repacking vendor_boot.img...")
+            self.logger.info(t('Repacking vendor_boot.img...'))
             self.shell.run(
                 [str(self.ctx.tools.magiskboot), "repack", "vendor_boot.img"], cwd=work_dir
             )
@@ -367,14 +368,14 @@ class WildBoostPlugin(ModifierPlugin):
             new_img = work_dir / "new-boot.img"
             if new_img.exists():
                 shutil.copy2(new_img, vendor_boot_img)
-                self.logger.info("vendor_boot.img updated successfully.")
+                self.logger.info(t('vendor_boot.img updated successfully.'))
             else:
-                self.logger.error("Failed to repack vendor_boot.img - no output file found.")
+                self.logger.error(t('Failed to repack vendor_boot.img - no output file found.'))
                 return False
 
             return True
         except Exception as e:
-            self.logger.error(f"Error installing to vendor_boot: {e}")
+            self.logger.error(t('Error installing to vendor_boot: %s'), e)
             return False
         finally:
             if work_dir.exists():
@@ -382,7 +383,7 @@ class WildBoostPlugin(ModifierPlugin):
 
     def _install_vendor_dlkm(self, ko_files: List[Path]) -> bool:
         """Install wild_boost modules to vendor_dlkm."""
-        self.logger.info(f"Installing {len(ko_files)} modules to vendor_dlkm...")
+        self.logger.info(t('Installing %s modules to vendor_dlkm...'), len(ko_files))
 
         target_dir = self.ctx.target_dir / "vendor_dlkm" / "lib" / "modules"
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -391,7 +392,7 @@ class WildBoostPlugin(ModifierPlugin):
             # 1. Copy modules
             for ko_file in ko_files:
                 dest_ko = target_dir / ko_file.name
-                self.logger.info(f"  Copying {ko_file.name} to {dest_ko}")
+                self.logger.info(t('  Copying %s to %s'), ko_file.name, dest_ko)
                 shutil.copy2(ko_file, dest_ko)
 
             # 2. Update modules.load
@@ -437,21 +438,21 @@ class WildBoostPlugin(ModifierPlugin):
                 # If no dep file, at least create the entry for perfmgr
                 modules_dep.write_text(f"{dep_prefix}perfmgr.ko:\n", encoding="utf-8")
 
-            self.logger.info("wild_boost installation completed for vendor_dlkm.")
+            self.logger.info(t('wild_boost installation completed for vendor_dlkm.'))
             return True
         except Exception as e:
-            self.logger.error(f"Error installing to vendor_dlkm: {e}")
+            self.logger.error(t('Error installing to vendor_dlkm: %s'), e)
             return False
 
     def _apply_libmigui_hexpatch(self) -> bool:
         """Apply HexPatch to libmigui.so for device spoofing."""
-        self.logger.info("Applying HexPatch to libmigui.so...")
+        self.logger.info(t('Applying HexPatch to libmigui.so...'))
 
         target_dir = self.ctx.target_dir
         libmigui_files = list(target_dir.rglob("libmigui.so"))
 
         if not libmigui_files:
-            self.logger.debug("libmigui.so not found, HexPatch skipped.")
+            self.logger.debug(t('libmigui.so not found, HexPatch skipped.'))
             return False
 
         patches = [
@@ -480,9 +481,9 @@ class WildBoostPlugin(ModifierPlugin):
                     libmigui.write_bytes(content)
                     patched_count += 1
             except Exception as e:
-                self.logger.error(f"Failed to patch {libmigui}: {e}")
+                self.logger.error(t('Failed to patch %s: %s'), libmigui, e)
 
-        self.logger.info(f"HexPatch applied to {patched_count} libmigui.so file(s).")
+        self.logger.info(t('HexPatch applied to %s libmigui.so file(s).'), patched_count)
         return patched_count > 0
 
     def _add_feas_property(self):
@@ -497,9 +498,9 @@ class WildBoostPlugin(ModifierPlugin):
             lines = content.splitlines()
 
         if "persist.sys.feas.enable=true" in content:
-            self.logger.info("persist.sys.feas.enable=true already exists.")
+            self.logger.info(t('persist.sys.feas.enable=true already exists.'))
             return
 
         lines.append("persist.sys.feas.enable=true")
         prop_file.write_text("\n".join(lines) + "\n", encoding="utf-8")
-        self.logger.info("Added persist.sys.feas.enable=true to mi_ext/build.prop")
+        self.logger.info(t('Added persist.sys.feas.enable=true to mi_ext/build.prop'))

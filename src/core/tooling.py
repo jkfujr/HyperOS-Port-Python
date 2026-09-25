@@ -7,6 +7,7 @@ import platform
 from dataclasses import dataclass
 from pathlib import Path
 from types import SimpleNamespace
+from src.utils.i18n import t
 
 
 @dataclass
@@ -40,7 +41,7 @@ def resolve_tooling(project_root: Path, logger: logging.Logger) -> ResolvedTooli
         platform_dir = "macos"
         executable_extension = ""
     else:
-        logger.warning(f"Unknown system: {system}, defaulting to Linux.")
+        logger.warning(t('Unknown system: %s, defaulting to Linux.'), system)
         platform_dir = "linux"
         executable_extension = ""
 
@@ -49,7 +50,7 @@ def resolve_tooling(project_root: Path, logger: logging.Logger) -> ResolvedTooli
     if not platform_bin_dir.exists() and fallback_dir.exists():
         platform_bin_dir = fallback_dir
 
-    logger.info(f"Platform Binary Dir: {platform_bin_dir}")
+    logger.info(t('Platform Binary Dir: %s'), platform_bin_dir)
 
     tools = SimpleNamespace()
     tools.magiskboot = platform_bin_dir / f"magiskboot{executable_extension}"
@@ -58,6 +59,6 @@ def resolve_tooling(project_root: Path, logger: logging.Logger) -> ResolvedTooli
     tools.apkeditor_jar = bin_root / "APKEditor.jar"
 
     if not tools.magiskboot.exists():
-        logger.warning(f"magiskboot not found at {tools.magiskboot}")
+        logger.warning(t('magiskboot not found at %s'), tools.magiskboot)
 
     return ResolvedTooling(platform_bin_dir=platform_bin_dir, tools=tools)

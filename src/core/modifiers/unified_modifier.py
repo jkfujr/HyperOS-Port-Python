@@ -14,6 +14,7 @@ from src.core.modifiers.plugins import (
 )
 from src.core.modifiers.plugins.apk import ApkModifierRegistry
 from src.core.props import PropertyModifier
+from src.utils.i18n import t
 
 BUILTIN_SYSTEM_PLUGINS = (
     FileReplacementPlugin,
@@ -67,12 +68,12 @@ class UnifiedModifier(BaseModifier):
             )
 
         # Register system plugins - auto-discover from src.core.modifiers.plugins package
-        self.logger.debug("Auto-discovering system-level plugins...")
+        self.logger.debug(t('Auto-discovering system-level plugins...'))
         self._auto_discover_system_plugins()
 
         # Register APK plugins
         if self.apk_manager:
-            self.logger.debug("Registering APK-level plugins...")
+            self.logger.debug(t('Registering APK-level plugins...'))
             ApkModifierRegistry.auto_discover(self.apk_manager)
 
     def _auto_discover_system_plugins(self):
@@ -106,10 +107,10 @@ class UnifiedModifier(BaseModifier):
                         try:
                             self.system_manager.register(attr)
                         except Exception as e:
-                            self.logger.debug(f"Skipped plugin {attr.__name__}: {e}")
+                            self.logger.debug(t('Skipped plugin %s: %s'), attr.__name__, e)
 
             except ImportError as e:
-                self.logger.debug(f"Could not import plugin module {name}: {e}")
+                self.logger.debug(t('Could not import plugin module %s: %s'), name, e)
 
         # Explicit defaults are still registered as a safety net, but only when
         # auto-discovery did not already find them.
@@ -123,18 +124,14 @@ class UnifiedModifier(BaseModifier):
                 if not self.system_manager.has_plugin(plugin_name):
                     self.system_manager.register(plugin_cls)
             except Exception as e:
-                self.logger.debug(
-                    f"Could not register plugin {plugin_cls.__name__}: {e}"
-                )
+                self.logger.debug(t('Could not register plugin %s: %s'), plugin_cls.__name__, e)
 
         # Log registered plugins
         registered_plugins = self.system_manager.list_plugins()
         if len(registered_plugins) == 0:
-            self.logger.warning("No plugins registered in system manager")
+            self.logger.warning(t('No plugins registered in system manager'))
         else:
-            self.logger.debug(
-                f"Registered {len(registered_plugins)} system-level plugins: {[p.name for p in registered_plugins]}"
-            )
+            self.logger.debug(t('Registered %s system-level plugins: %s'), len(registered_plugins), [p.name for p in registered_plugins])
 
     def run(self, phases: Optional[List[str]] = None) -> bool:
         """Execute all modifications.
@@ -152,20 +149,17 @@ class UnifiedModifier(BaseModifier):
         # Phase 1: System-level modifications
         if "system" in phases:
             self.logger.info("=" * 60)
-            self.logger.info("PHASE 1: System-Level Modifications")
+            self.logger.info(t('PHASE 1: System-Level Modifications'))
             self.logger.info("=" * 60)
 
-            self.logger.info("Executing system-level plugins...")
+            self.logger.info(t('Executing system-level plugins...'))
             results = self.system_manager.execute()
 
             success = sum(1 for r in results.values() if r is True)
             failed = sum(1 for r in results.values() if r is False)
             skipped = sum(1 for r in results.values() if r is None)
 
-            self.logger.info(
-                f"System modifications: {success} succeeded, "
-                f"{failed} failed, {skipped} skipped"
-            )
+            self.logger.info(t('System modifications: %s succeeded, %s failed, %s skipped'), success, failed, skipped)
 
             if failed > 0:
                 all_success = False
@@ -173,28 +167,22 @@ class UnifiedModifier(BaseModifier):
         # Phase 2: APK-level modifications
         if "apk" in phases and self.apk_manager:
             self.logger.info("=" * 60)
-            self.logger.info("PHASE 2: APK-Level Modifications")
+            self.logger.info(t('PHASE 2: APK-Level Modifications'))
             self.logger.info("=" * 60)
 
             # Build APK caches for fast lookup
             if hasattr(self.ctx, "build_apk_caches"):
                 cache_stats = self.ctx.build_apk_caches()
-                self.logger.info(
-                    f"APK caches ready: {cache_stats['files']} files, "
-                    f"{cache_stats['packages']} packages"
-                )
+                self.logger.info(t('APK caches ready: %s files, %s packages'), cache_stats['files'], cache_stats['packages'])
 
-            self.logger.info("Executing APK-level plugins...")
+            self.logger.info(t('Executing APK-level plugins...'))
             results = self.apk_manager.execute()
 
             success = sum(1 for r in results.values() if r is True)
             failed = sum(1 for r in results.values() if r is False)
             skipped = sum(1 for r in results.values() if r is None)
 
-            self.logger.info(
-                f"APK modifications: {success} succeeded, "
-                f"{failed} failed, {skipped} skipped"
-            )
+            self.logger.info(t('APK modifications: %s succeeded, %s failed, %s skipped'), success, failed, skipped)
 
             if failed > 0:
                 all_success = False
@@ -282,7 +270,7 @@ class ApkModifier(BaseModifier):
 
     def run(self) -> bool:
         """Execute all APK modifications."""
-        self.logger.info("Starting APK Modifications...")
+        self.logger.info(t('Starting APK Modifications...'))
 
         results = self.plugin_manager.execute()
 
@@ -290,10 +278,7 @@ class ApkModifier(BaseModifier):
         failed = sum(1 for r in results.values() if r is False)
         skipped = sum(1 for r in results.values() if r is None)
 
-        self.logger.info(
-            f"APK Modifications Completed: "
-            f"{success} succeeded, {failed} failed, {skipped} skipped"
-        )
+        self.logger.info(t('APK Modifications Completed: %s succeeded, %s failed, %s skipped'), success, failed, skipped)
 
         return failed == 0
 

@@ -8,6 +8,7 @@ from typing import Optional
 
 from src.core.modifiers.plugin_system import ModifierPlugin, PluginManager
 from src.core.monitoring import Monitor, get_monitor
+from src.utils.i18n import t
 
 
 class MonitoredPlugin(ModifierPlugin):
@@ -119,18 +120,18 @@ class MonitoredPluginManager(PluginManager):
 
     def _on_plugin_start(self, plugin: ModifierPlugin):
         """Handle plugin start."""
-        self.logger.info(f"[Monitor] Plugin starting: {plugin.name}")
+        self.logger.info(t('[Monitor] Plugin starting: %s'), plugin.name)
         self.monitor.record_metric(f"plugin.{plugin.name}.start_time", time.time())
 
     def _on_plugin_complete(self, plugin: ModifierPlugin, success: bool):
         """Handle plugin completion."""
         status = "✓" if success else "✗"
-        self.logger.info(f"[Monitor] Plugin completed {status}: {plugin.name}")
+        self.logger.info(t('[Monitor] Plugin completed %s: %s'), status, plugin.name)
         self.monitor.record_metric(f"plugin.{plugin.name}.completed", 1 if success else 0)
 
     def _on_plugin_error(self, plugin: ModifierPlugin, error: Exception):
         """Handle plugin error."""
-        self.logger.error(f"[Monitor] Plugin error in {plugin.name}: {error}")
+        self.logger.error(t('[Monitor] Plugin error in %s: %s'), plugin.name, error)
         self.monitor.report.add_error(plugin.name, error)
 
     def execute(self, plugin_names=None) -> dict[str, bool | None]:

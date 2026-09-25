@@ -4,6 +4,7 @@ import platform
 import subprocess
 from pathlib import Path
 from typing import Callable, List, Optional, Union
+from src.utils.i18n import t
 
 
 class ShellRunner:
@@ -30,7 +31,7 @@ class ShellRunner:
         self.bin_dir = project_root / "bin" / self.os_name / self.arch
 
         if not self.bin_dir.exists():
-            self.logger.warning(f"Binary directory not found: {self.bin_dir}")
+            self.logger.warning(t('Binary directory not found: %s'), self.bin_dir)
             
         self.otatools_bin = project_root / "otatools" / "bin"
 
@@ -92,7 +93,7 @@ class ShellRunner:
             run_env.update(env)
             
         cmd_str = " ".join(cmd) if isinstance(cmd, list) else cmd
-        self.logger.debug(f"Running: {cmd_str}")
+        self.logger.debug(t('Running: %s'), cmd_str)
 
         # If a logger or on_line is provided, we must capture output
         should_capture = capture_output or (logger is not None) or (on_line is not None)
@@ -119,7 +120,7 @@ class ShellRunner:
                             on_line(clean_line)
                         elif logger and clean_line:
                             # Standard streaming log
-                            logger.info(f"  [SHELL] {clean_line}")
+                            logger.info(t('  [SHELL] %s'), clean_line)
                         output_lines.append(line)
                 
                 returncode = process.wait()
@@ -143,12 +144,12 @@ class ShellRunner:
                 return result
             
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Command failed with return code {e.returncode}")
-            self.logger.error(f"Command: {cmd_str}")
+            self.logger.error(t('Command failed with return code %s'), e.returncode)
+            self.logger.error(t('Command: %s'), cmd_str)
             if hasattr(e, 'stderr') and e.stderr:
-                self.logger.error(f"Stderr: {e.stderr.strip()}")
+                self.logger.error(t('Stderr: %s'), e.stderr.strip())
             elif hasattr(e, 'output') and e.output:
-                self.logger.error(f"Output: {e.output.strip()}")
+                self.logger.error(t('Output: %s'), e.output.strip())
             raise e
 
     def run_java_jar(self, jar_path: Union[str, Path], args: List[str], **kwargs):

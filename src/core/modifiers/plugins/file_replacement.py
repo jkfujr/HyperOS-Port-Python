@@ -10,6 +10,7 @@ from typing import Dict
 
 from src.core.modifiers.plugin_system import ModifierPlugin, ModifierRegistry
 from src.utils.download import AssetDownloader
+from src.utils.i18n import t
 
 
 @ModifierRegistry.register
@@ -41,7 +42,7 @@ class FileReplacementPlugin(ModifierPlugin):
         if not replacements:
             return True
 
-        self.logger.info(f"Processing {len(replacements)} file replacements...")
+        self.logger.info(t('Processing %s file replacements...'), len(replacements))
 
         # Build context for condition evaluation
         build_ctx = BuildContext()
@@ -60,17 +61,17 @@ class FileReplacementPlugin(ModifierPlugin):
             # Evaluate conditions
             passed, reason = self.evaluator.evaluate_with_reason(rule, build_ctx)
             if not passed:
-                self.logger.debug(f"Rule '{rule.get('description', 'unnamed')}' skipped: {reason}")
+                self.logger.debug(t("Rule '%s' skipped: %s"), rule.get('description', 'unnamed'), reason)
                 continue
 
             desc = rule.get("description", "Unknown Rule")
             rtype = rule.get("type", "file")
-            self.logger.info(f"Applying replacement rule: {desc}")
+            self.logger.info(t('Applying replacement rule: %s'), desc)
 
             try:
                 self._handle_rule(rule, rtype, stock_root, target_root)
             except Exception as e:
-                self.logger.error(f"Failed to apply rule '{desc}': {e}")
+                self.logger.error(t("Failed to apply rule '%s': %s"), desc, e)
 
         return True
 
@@ -85,7 +86,7 @@ class FileReplacementPlugin(ModifierPlugin):
         config, report = self.merger.load_and_merge(valid_paths, filename)
 
         if report.loaded_files:
-            self.logger.info(f"Merged {filename} from: {', '.join(report.loaded_files)}")
+            self.logger.info(t('Merged %s from: %s'), filename, ', '.join(report.loaded_files))
         return config
 
     def _handle_rule(self, rule: Dict, rtype: str, stock_root: Path, target_root: Path):
@@ -112,7 +113,7 @@ class FileReplacementPlugin(ModifierPlugin):
         """Handle unzip_override rule type."""
         source_zip = Path(rule["source"])
         if not source_zip.exists():
-            self.logger.warning(f"Source zip not found: {source_zip}")
+            self.logger.warning(t('Source zip not found: %s'), source_zip)
             return
 
         target_dir = target_root
@@ -129,7 +130,7 @@ class FileReplacementPlugin(ModifierPlugin):
 
         if not source.exists():
             if rule.get("ensure_exists", False):
-                self.logger.warning(f"Internal source not found: {rule['source']}")
+                self.logger.warning(t('Internal source not found: %s'), rule['source'])
             return
 
         target.parent.mkdir(parents=True, exist_ok=True)
@@ -147,7 +148,7 @@ class FileReplacementPlugin(ModifierPlugin):
         for pattern in files:
             root = target_root / search_path
             for item in root.glob(pattern):
-                self.logger.info(f"Removing: {item.relative_to(target_root)}")
+                self.logger.info(t('Removing: %s'), item.relative_to(target_root))
                 if item.is_dir():
                     shutil.rmtree(item)
                 else:
@@ -166,7 +167,7 @@ class FileReplacementPlugin(ModifierPlugin):
             target_files = list(target_root.rglob(target_val))
 
         if not target_files:
-            self.logger.warning(f"HexPatch target not found: {target_val}")
+            self.logger.warning(t('HexPatch target not found: %s'), target_val)
             return
 
         for target_file in target_files:

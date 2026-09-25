@@ -7,6 +7,7 @@ import re
 import shutil
 from pathlib import Path
 from typing import List, Union
+from src.utils.i18n import t
 
 
 def _natural_sort_key(path: Path) -> List[Union[int, str]]:
@@ -62,33 +63,33 @@ def process_sparse_images(images_dir: Path, logger: logging.Logger, shell) -> No
             break
 
     if isinstance(simg2img_bin, Path):
-        logger.info(f"Using simg2img binary: {simg2img_bin}")
+        logger.info(t('Using simg2img binary: %s'), simg2img_bin)
     else:
-        logger.info("Using simg2img from system PATH")
+        logger.info(t('Using simg2img from system PATH'))
 
     # 1. Handle super.img
     super_chunks = sorted(list(images_dir.glob("super.img.*")), key=_natural_sort_key)
     target_super = images_dir / "super.img"
 
     if super_chunks:
-        logger.info(f"Merging sparse super images: {[c.name for c in super_chunks]}...")
+        logger.info(t('Merging sparse super images: %s...'), [c.name for c in super_chunks])
         try:
             cmd = [str(simg2img_bin)] + [str(c) for c in super_chunks] + [str(target_super)]
             shell.run(cmd)
             for c in super_chunks:
                 os.unlink(c)
         except Exception as e:
-            logger.error(f"Failed to merge super.img: {e}")
+            logger.error(t('Failed to merge super.img: %s'), e)
             raise
 
     elif target_super.exists():
-        logger.info("converting super.img to raw (if sparse)...")
+        logger.info(t('converting super.img to raw (if sparse)...'))
         temp_raw = images_dir / "super.raw.img"
         try:
             shell.run([str(simg2img_bin), str(target_super), str(temp_raw)])
             shutil.move(temp_raw, target_super)
         except Exception as e:
-            logger.warning(f"simg2img conversion skipped/failed: {e}")
+            logger.warning(t('simg2img conversion skipped/failed: %s'), e)
             if temp_raw.exists():
                 os.unlink(temp_raw)
 
@@ -97,14 +98,14 @@ def process_sparse_images(images_dir: Path, logger: logging.Logger, shell) -> No
     target_cust = images_dir / "cust.img"
 
     if cust_chunks:
-        logger.info("Merging sparse cust images...")
+        logger.info(t('Merging sparse cust images...'))
         try:
             cmd = [str(simg2img_bin)] + [str(c) for c in cust_chunks] + [str(target_cust)]
             shell.run(cmd)
             for c in cust_chunks:
                 os.unlink(c)
         except Exception as e:
-            logger.error(f"Failed to merge cust.img: {e}")
+            logger.error(t('Failed to merge cust.img: %s'), e)
 
 
 def load_single_prop_file(
@@ -128,7 +129,7 @@ def load_single_prop_file(
     except ValueError:
         rel_path = file_path.name
 
-    logger.debug(f"Parsing: {rel_path}")
+    logger.debug(t('Parsing: %s'), rel_path)
     try:
         with open(file_path, "r", encoding="utf-8", errors="ignore") as f:
             for line in f:
@@ -142,7 +143,7 @@ def load_single_prop_file(
                 prop_history[key].append((str(rel_path), value))
                 props[key] = value
     except Exception as e:
-        logger.error(f"Error reading {rel_path}: {e}")
+        logger.error(t('Error reading %s: %s'), rel_path, e)
 
 
 def sort_prop_priority(path: Path) -> int:

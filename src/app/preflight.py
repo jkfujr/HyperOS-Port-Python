@@ -12,6 +12,7 @@ from typing import Any
 
 from src.core.rom.constants import RomType
 from src.core.rom.package import RomPackage
+from src.utils.i18n import t
 
 
 @dataclass
@@ -269,19 +270,14 @@ def run_preflight(args, is_official_modify: bool, logger: logging.Logger) -> Pre
             details=detected_types,
         )
 
-    logger.info(
-        "Preflight summary: blockers=%s, risks=%s, findings=%s",
-        len(report.blockers),
-        len(report.risks),
-        len(report.findings),
-    )
+    logger.info(t('Preflight summary: blockers=%s, risks=%s, findings=%s'), len(report.blockers), len(report.risks), len(report.findings))
     for finding in report.findings:
         if finding.severity == "blocker":
-            logger.error("[Preflight][%s] %s", finding.code, finding.message)
+            logger.error(t('[Preflight][%s] %s'), finding.code, finding.message)
         elif finding.severity == "risk":
-            logger.warning("[Preflight][%s] %s", finding.code, finding.message)
+            logger.warning(t('[Preflight][%s] %s'), finding.code, finding.message)
         else:
-            logger.info("[Preflight][%s] %s", finding.code, finding.message)
+            logger.info(t('[Preflight][%s] %s'), finding.code, finding.message)
 
     return report
 

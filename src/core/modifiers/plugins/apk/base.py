@@ -16,6 +16,7 @@ from typing import Any, Dict, List, Optional
 from src.core.modifiers.plugin_system import ModifierPlugin
 from src.utils.smalikit import SmaliArgs, SmaliKit
 from src.utils.xml_utils import XmlUtils
+from src.utils.i18n import t
 
 
 class ApkModifierPlugin(ModifierPlugin):
@@ -100,13 +101,13 @@ class ApkModifierPlugin(ModifierPlugin):
                 self._last_line_was_progress = False
 
             # Log to the actual logger (this will go to both console and file)
-            self.logger.info(f"  [SHELL] {line}")
+            self.logger.info(t('  [SHELL] %s'), line)
 
     def check_prerequisites(self) -> bool:
         """Check if target APK exists using cached lookup."""
         self._apk_path = self._find_apk()
         if not self._apk_path:
-            self.logger.debug(f"APK {self.apk_name} not found, skipping")
+            self.logger.debug(t('APK %s not found, skipping'), self.apk_name)
             return False
         return True
 
@@ -115,17 +116,17 @@ class ApkModifierPlugin(ModifierPlugin):
         if not self._apk_path:
             return False
 
-        self.logger.info(f"Modifying {self.apk_name}...")
+        self.logger.info(t('Modifying %s...'), self.apk_name)
 
         # Check APK modification cache
         cached_apk = self._get_cached_apk()
         if cached_apk:
-            self.logger.info(f"Using cached modified APK: {self.apk_name}")
+            self.logger.info(t('Using cached modified APK: %s'), self.apk_name)
             try:
                 shutil.copy2(cached_apk, self._apk_path)
                 return True
             except Exception as e:
-                self.logger.warning(f"Failed to copy cached APK: {e}, will rebuild")
+                self.logger.warning(t('Failed to copy cached APK: %s, will rebuild'), e)
 
         try:
             # 1. Decompile APK using context's tools
@@ -142,16 +143,16 @@ class ApkModifierPlugin(ModifierPlugin):
             output_apk = self._recompile_apk(work_dir, self._apk_path)
 
             if output_apk:
-                self.logger.info(f"Successfully modified {self.apk_name}")
+                self.logger.info(t('Successfully modified %s'), self.apk_name)
                 # Save to cache
                 self._save_apk_cache(output_apk)
                 return True
             else:
-                self.logger.error(f"Failed to recompile {self.apk_name}")
+                self.logger.error(t('Failed to recompile %s'), self.apk_name)
                 return False
 
         except Exception as e:
-            self.logger.error(f"Error modifying {self.apk_name}: {e}")
+            self.logger.error(t('Error modifying %s: %s'), self.apk_name, e)
             return False
 
     def _get_cache_key(self) -> Optional[str]:
@@ -235,11 +236,11 @@ class ApkModifierPlugin(ModifierPlugin):
             }
             (cache_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
 
-            self.logger.debug(f"Cached modified APK: {self.apk_name}")
+            self.logger.debug(t('Cached modified APK: %s'), self.apk_name)
             return True
 
         except Exception as e:
-            self.logger.warning(f"Failed to cache APK {self.apk_name}: {e}")
+            self.logger.warning(t('Failed to cache APK %s: %s'), self.apk_name, e)
             return False
 
     @abstractmethod
@@ -263,14 +264,14 @@ class ApkModifierPlugin(ModifierPlugin):
         if self.package_name and hasattr(self.ctx, "find_apk_by_package"):
             apk_path = self.ctx.find_apk_by_package(self.package_name)
             if apk_path:
-                self.logger.debug(f"Found {self.apk_name} by package name: {self.package_name}")
+                self.logger.debug(t('Found %s by package name: %s'), self.apk_name, self.package_name)
                 return apk_path
 
         # 2. Try filename lookup (cached)
         if hasattr(self.ctx, "find_apk_by_name"):
             apk_path = self.ctx.find_apk_by_name(self.apk_name)
             if apk_path:
-                self.logger.debug(f"Found {self.apk_name} by filename")
+                self.logger.debug(t('Found %s by filename'), self.apk_name)
                 return apk_path
 
         # 3. Try custom paths if specified
@@ -278,7 +279,7 @@ class ApkModifierPlugin(ModifierPlugin):
             for path_str in self.apk_paths:
                 full_path = self.ctx.target_dir / path_str
                 if full_path.exists():
-                    self.logger.debug(f"Found {self.apk_name} at custom path: {path_str}")
+                    self.logger.debug(t('Found %s at custom path: %s'), self.apk_name, path_str)
                     return full_path
 
         # 4. Fallback: direct path search
@@ -312,7 +313,7 @@ class ApkModifierPlugin(ModifierPlugin):
         apkeditor_jar = self.ctx.tools.apkeditor_jar
 
         if not apkeditor_jar.exists():
-            self.logger.error(f"APKEditor not found: {apkeditor_jar}")
+            self.logger.error(t('APKEditor not found: %s'), apkeditor_jar)
             return None
 
         # Create work directory in temp folder
@@ -335,10 +336,10 @@ class ApkModifierPlugin(ModifierPlugin):
                 sys.stdout.flush()
                 self._last_line_was_progress = False
 
-            self.logger.debug(f"Decompiled {apk_path.name} to {work_dir}")
+            self.logger.debug(t('Decompiled %s to %s'), apk_path.name, work_dir)
             return work_dir
         except Exception as e:
-            self.logger.error(f"Failed to decompile {apk_path}: {e}")
+            self.logger.error(t('Failed to decompile %s: %s'), apk_path, e)
             return None
 
     def _recompile_apk(self, work_dir: Path, original_apk: Path) -> Optional[Path]:
@@ -347,7 +348,7 @@ class ApkModifierPlugin(ModifierPlugin):
         apkeditor_jar = self.ctx.tools.apkeditor_jar
 
         if not apkeditor_jar.exists():
-            self.logger.error(f"APKEditor not found: {apkeditor_jar}")
+            self.logger.error(t('APKEditor not found: %s'), apkeditor_jar)
             return None
 
         temp_apk = work_dir.parent / f"{self.apk_name}_recompiled.apk"
@@ -368,14 +369,14 @@ class ApkModifierPlugin(ModifierPlugin):
 
             # Replace original
             shutil.copy2(temp_apk, original_apk)
-            self.logger.debug(f"Recompiled APK saved to {original_apk}")
+            self.logger.debug(t('Recompiled APK saved to %s'), original_apk)
 
             # Cleanup
             temp_apk.unlink()
 
             return original_apk
         except Exception as e:
-            self.logger.error(f"Failed to recompile {self.apk_name}: {e}")
+            self.logger.error(t('Failed to recompile %s: %s'), self.apk_name, e)
             return None
 
     # Helper methods for Smali patching
@@ -399,7 +400,7 @@ class ApkModifierPlugin(ModifierPlugin):
     def xml_modify(self, xml_path: Path, xpath: str, value: Any):
         """Modify XML file."""
         # Implementation depends on XmlUtils capabilities
-        self.logger.debug(f"XML modify: {xml_path} @ {xpath} = {value}")
+        self.logger.debug(t('XML modify: %s @ %s = %s'), xml_path, xpath, value)
 
     def _find_file(self, work_dir: Path, filename: str) -> Optional[Path]:
         """Find a file in work directory."""

@@ -18,6 +18,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
+from src.utils.i18n import t
 
 
 @dataclass
@@ -367,13 +368,13 @@ class Monitor:
         """Start monitoring."""
         self._active = True
         self.report.start_time = datetime.now()
-        self.logger.info("Monitoring started")
+        self.logger.info(t('Monitoring started'))
 
     def stop(self):
         """Stop monitoring."""
         self._active = False
         self.report.finalize()
-        self.logger.info("Monitoring stopped")
+        self.logger.info(t('Monitoring stopped'))
 
     @contextmanager
     def phase(self, name: str):
@@ -384,18 +385,18 @@ class Monitor:
                 # Phase work
                 pass
         """
-        self.logger.info(f"Phase started: {name}")
+        self.logger.info(t('Phase started: %s'), name)
         with self.report.execution_tracer.trace(name) as record:
             try:
                 yield self
                 self.report.add_phase_result(name, True, {"duration": record.duration})
-                self.logger.info(f"Phase completed: {name} ({record.duration:.2f}s)")
+                self.logger.info(t('Phase completed: %s (%.2fs)'), name, record.duration)
             except Exception as e:
                 self.report.add_phase_result(
                     name, False, {"duration": record.duration, "error": str(e)}
                 )
                 self.report.add_error(name, e)
-                self.logger.error(f"Phase failed: {name} - {e}")
+                self.logger.error(t('Phase failed: %s - %s'), name, e)
                 raise
 
     def record_metric(self, name: str, value: float, unit: str = "", **tags):
@@ -403,7 +404,7 @@ class Monitor:
         if not self._active:
             return
         self.report.metrics_collector.record(name, value, unit, **tags)
-        self.logger.debug(f"Metric: {name}={value}{unit}")
+        self.logger.debug(t('Metric: %s=%s%s'), name, value, unit)
 
     def increment_counter(self, name: str, value: float = 1.0):
         """Increment a counter."""

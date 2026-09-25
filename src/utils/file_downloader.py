@@ -3,6 +3,7 @@ import sys
 import urllib.request
 from pathlib import Path
 from typing import Optional
+from src.utils.i18n import t
 
 
 def download_file(url: str, target_path: Path, logger: Optional[logging.Logger] = None) -> bool:
@@ -21,7 +22,7 @@ def download_file(url: str, target_path: Path, logger: Optional[logging.Logger] 
         logger = logging.getLogger("FileDownloader")
         
     try:
-        logger.info(f"Downloading from {url}...")
+        logger.info(t('Downloading from %s...'), url)
         
         # Create parent directories if needed
         target_path.parent.mkdir(parents=True, exist_ok=True)
@@ -56,11 +57,11 @@ def download_file(url: str, target_path: Path, logger: Optional[logging.Logger] 
             if total_size > 0:
                 print()  # New line after completion
                 
-        logger.info(f"Successfully downloaded to {target_path}")
+        logger.info(t('Successfully downloaded to %s'), target_path)
         return True
 
     except Exception as e:
-        logger.error(f"Download failed: {e}")
+        logger.error(t('Download failed: %s'), e)
         if target_path.exists():
             target_path.unlink()
         return False

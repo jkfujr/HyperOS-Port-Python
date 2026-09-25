@@ -2,6 +2,7 @@ import logging
 import re
 from pathlib import Path
 from typing import List, Optional
+from src.utils.i18n import t
 
 
 class XmlUtils:
@@ -31,7 +32,7 @@ class XmlUtils:
         # 3. Ultimate radar: Search for directory containing values/strings.xml among all candidates
         for res in possible_res_dirs:
             if (res / "values" / "strings.xml").exists() or (res / "values" / "arrays.xml").exists():
-                self.logger.debug(f"Targeting resource directory: {res.relative_to(work_dir)}")
+                self.logger.debug(t('Targeting resource directory: %s'), res.relative_to(work_dir))
                 return res
 
         # 4. Fallback: If not found (e.g. minimal APP with no strings), return the first found or standard res/
@@ -90,13 +91,13 @@ class XmlUtils:
 
         target_file = target_dir / "strings.xml"
         if not target_file.exists():
-            self.logger.info(f"File {target_file.name} not found in {target_dir.name}, creating a new one.")
+            self.logger.info(t('File %s not found in %s, creating a new one.'), target_file.name, target_dir.name)
             empty_xml = '<?xml version="1.0" encoding="utf-8"?>\n<resources>\n</resources>\n'
             target_file.write_text(empty_xml, encoding='utf-8', newline='\n')
 
         content = target_file.read_text(encoding='utf-8', errors='ignore')
         if f'name="{name}"' in content:
-            self.logger.warning(f"String '{name}' already exists in {target_dir.name}/{target_file.name}, skipping.") 
+            self.logger.warning(t("String '%s' already exists in %s/%s, skipping."), name, target_dir.name, target_file.name) 
             return
 
         new_line = f'\n    <string name="{name}">{value}</string>\n'
@@ -105,9 +106,9 @@ class XmlUtils:
         if len(parts) == 2:
             new_content = parts[0] + new_line + '</resources>\n'
             target_file.write_text(new_content, encoding='utf-8', newline='\n')
-            self.logger.debug(f"Injected string '{name}' into {target_dir.name}")
+            self.logger.debug(t("Injected string '%s' into %s"), name, target_dir.name)
         else:
-            self.logger.error(f"Failed to find </resources> tag in {target_file.name}") 
+            self.logger.error(t('Failed to find </resources> tag in %s'), target_file.name) 
 
     def add_public_id(self, res_dir: Path, res_type: str, name: str) -> Optional[str]:
         """
@@ -153,7 +154,7 @@ class XmlUtils:
             new_content = content.replace('</resources>', f'{line}</resources>')
             public_xml.write_text(new_content, encoding='utf-8')
         
-        self.logger.info(f"Generated Public ID for {name}: {new_id_hex}")
+        self.logger.info(t('Generated Public ID for %s: %s'), name, new_id_hex)
         return new_id_hex
 
     def add_array_item(self, res_dir: Path, array_name: str, items: List[str], lang_suffix: str = ""):
@@ -196,7 +197,7 @@ class XmlUtils:
         
         match = pattern.search(content)
         if not match:
-            self.logger.warning(f"Array '{array_name}' not found in {target_dir.name}/{target_file.name}")
+            self.logger.warning(t("Array '%s' not found in %s/%s"), array_name, target_dir.name, target_file.name)
             return
             
         open_tag = match.group(1)      
@@ -221,4 +222,4 @@ class XmlUtils:
         new_block = f"{open_tag}{new_inner}{close_tag}"
         new_content = content[:match.start()] + new_block + content[match.end():]
         target_file.write_text(new_content, encoding='utf-8', newline='\n')
-        self.logger.debug(f"Injected {added_count} items into array '{array_name}' ({target_dir.name}/{target_file.name})")
+        self.logger.debug(t("Injected %s items into array '%s' (%s/%s)"), added_count, array_name, target_dir.name, target_file.name)

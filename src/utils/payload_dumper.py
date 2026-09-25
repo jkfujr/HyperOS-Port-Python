@@ -13,6 +13,7 @@ import subprocess
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from src.utils.i18n import t
 
 logger = logging.getLogger("payload_dumper")
 
@@ -293,7 +294,7 @@ class PayloadDumperRunner:
         """
         dumper_path = self._get_payload_dumper_path()
         cmd = [dumper_path] + list(args) + [str(self.payload_path)]
-        logger.debug(f"Running: {' '.join(cmd)}")
+        logger.debug(t('Running: %s'), ' '.join(cmd))
 
         try:
             result = subprocess.run(
@@ -305,14 +306,14 @@ class PayloadDumperRunner:
             )
             return result.stdout
         except subprocess.CalledProcessError as e:
-            logger.error(f"payload-dumper failed with exit code {e.returncode}")
-            logger.error(f"stderr: {e.stderr}")
+            logger.error(t('payload-dumper failed with exit code %s'), e.returncode)
+            logger.error(t('stderr: %s'), e.stderr)
             raise
         except subprocess.TimeoutExpired:
-            logger.error(f"payload-dumper timed out after {self.timeout}s")
+            logger.error(t('payload-dumper timed out after %ss'), self.timeout)
             raise
         except FileNotFoundError:
-            logger.error("payload-dumper not found. Please ensure payload-dumper is installed.")
+            logger.error(t('payload-dumper not found. Please ensure payload-dumper is installed.'))
             raise
 
     def get_partitions_json(self) -> Dict[str, Any]:
@@ -335,9 +336,9 @@ class PayloadDumperRunner:
             self._json_output = parsed
             return parsed
         except json.JSONDecodeError as e:
-            logger.error(f"Failed to parse JSON output: {e}")
+            logger.error(t('Failed to parse JSON output: %s'), e)
             if "stdout" in locals():
-                logger.error(f"Raw output: {stdout[:500]}...")
+                logger.error(t('Raw output: %s...'), stdout[:500])
             raise
 
     def get_metadata(self) -> Dict[str, str]:
@@ -438,9 +439,9 @@ def extract_device_info(
             raise RuntimeError("Could not extract device code from ROM metadata")
         return device_code, info
     except Exception as e:
-        logger.warning(f"Failed to extract device info: {e}")
+        logger.warning(t('Failed to extract device info: %s'), e)
         if fallback_device_code:
-            logger.info(f"Using fallback device code: {fallback_device_code}")
+            logger.info(t('Using fallback device code: %s'), fallback_device_code)
             # Return empty output with fallback code
             return fallback_device_code, PayloadDumperOutput()
         raise RuntimeError(f"Failed to extract device info and no fallback provided: {e}") from e

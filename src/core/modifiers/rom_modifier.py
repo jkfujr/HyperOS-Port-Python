@@ -3,6 +3,7 @@
 from pathlib import Path
 
 from src.core.modifiers.base_modifier import BaseModifier
+from src.utils.i18n import t
 
 
 class RomModifier(BaseModifier):
@@ -16,16 +17,16 @@ class RomModifier(BaseModifier):
 
     def run_all_modifications(self):
         """Execute all ROM modification phases."""
-        self.logger.info("=== Starting ROM Modification Phase ===")
+        self.logger.info(t('=== Starting ROM Modification Phase ==='))
 
         self._sync_and_patch_components()
         self._apply_overrides()
 
-        self.logger.info("=== Modification Phase Completed ===")
+        self.logger.info(t('=== Modification Phase Completed ==='))
 
     def _clean_bloatware(self):
         """Remove bloatware from target ROM."""
-        self.logger.info("Step 1: Cleaning Bloatware...")
+        self.logger.info(t('Step 1: Cleaning Bloatware...'))
         debloat_list = [
             "MSA",
             "AnalyticsCore",
@@ -42,19 +43,19 @@ class RomModifier(BaseModifier):
 
     def _sync_and_patch_components(self):
         """Sync stock components and apply patches."""
-        self.logger.info("Step 2: Syncing Stock Components & Patching (via replacements.json)...")
-        self.logger.info("Phase 2 sync completed.")
+        self.logger.info(t('Step 2: Syncing Stock Components & Patching (via replacements.json)...'))
+        self.logger.info(t('Phase 2 sync completed.'))
 
     def _apply_overrides(self):
         """Apply physical override files."""
-        self.logger.info("Step 3: Applying Physical Overrides...")
+        self.logger.info(t('Step 3: Applying Physical Overrides...'))
 
         self._apply_common_overrides()
 
         # Apply device-specific general overrides first (if exists)
         general_override_dir = Path(f"devices/{self.ctx.stock_rom_code}/override/general")
         if general_override_dir.exists():
-            self.logger.info(f"Applying general overrides from {general_override_dir}...")
+            self.logger.info(t('Applying general overrides from %s...'), general_override_dir)
             self.ctx.syncer.apply_override(general_override_dir, self.target_rom_img)
 
         # Apply EU-specific overrides for EU ROMs (if exists)
@@ -62,7 +63,7 @@ class RomModifier(BaseModifier):
         if is_eu_rom:
             eu_override_dir = Path(f"devices/{self.ctx.stock_rom_code}/override/eu")
             if eu_override_dir.exists():
-                self.logger.info(f"Applying EU-specific overrides from {eu_override_dir}...")
+                self.logger.info(t('Applying EU-specific overrides from %s...'), eu_override_dir)
                 self.ctx.syncer.apply_override(eu_override_dir, self.target_rom_img)
 
         # Apply version-specific overrides (higher priority)
@@ -78,18 +79,16 @@ class RomModifier(BaseModifier):
         skip_on_official = device_config.get("overrides", {}).get("skip_common_on_official", True)
 
         if self.ctx.is_official_modify and skip_on_official:
-            self.logger.info(
-                "Official Modification mode detected: Skipping common (devices/common) overrides as per configuration."
-            )
+            self.logger.info(t('Official Modification mode detected: Skipping common (devices/common) overrides as per configuration.'))
             return
 
         os_version_name = self.ctx.port.get_prop("ro.mi.os.version.name", "")
-        self.logger.info(f"Checking for common overrides. Port OS Version: {os_version_name}")
+        self.logger.info(t('Checking for common overrides. Port OS Version: %s'), os_version_name)
 
         if os_version_name.startswith("OS3"):
-            self.logger.info("Detected HyperOS 3.0+, applying common OS3 fixes...")
+            self.logger.info(t('Detected HyperOS 3.0+, applying common OS3 fixes...'))
             common_os3_dir = Path("devices/common/override/os3")
             if common_os3_dir.exists():
                 self.ctx.syncer.apply_override(common_os3_dir, self.target_rom_img)
             else:
-                self.logger.warning(f"Common OS3 override directory not found at {common_os3_dir}")
+                self.logger.warning(t('Common OS3 override directory not found at %s'), common_os3_dir)

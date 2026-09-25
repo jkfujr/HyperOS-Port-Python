@@ -14,6 +14,7 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 from src.utils.contextpatch import ContextPatcher
 from src.utils.fspatch import patch_fs_config
 from src.utils.shell import ShellRunner
+from src.utils.i18n import t
 
 AVB_DEFAULT_ALGORITHM = "SHA256_RSA4096"
 AOSP_AVB_PARTITIONS = {
@@ -337,7 +338,7 @@ class Repacker:
         :param pack_type: "EXT" (ext4) or "EROFS"
         :param is_rw: Read-write mode (only valid for EXT4)
         """
-        self.logger.info(f"Starting repack with format: {pack_type}")
+        self.logger.info(t('Starting repack with format: %s'), pack_type)
 
         partitions: List[str] = []
         for item in self.ctx.target_dir.iterdir():
@@ -354,10 +355,10 @@ class Repacker:
                 try:
                     future.result()
                 except (concurrent.futures.CancelledError, concurrent.futures.TimeoutError) as e:
-                    self.logger.error(f"Partition packing failed: {e}")
+                    self.logger.error(t('Partition packing failed: %s'), e)
                     raise
                 except RuntimeError as e:
-                    self.logger.error(f"Partition packing failed: {e}")
+                    self.logger.error(t('Partition packing failed: %s'), e)
                     raise
 
     def _pack_partition(self, part_name: str, pack_type: str, is_rw: bool) -> None:
@@ -366,7 +367,7 @@ class Repacker:
         fs_config: Path = self.ctx.target_config_dir / f"{part_name}_fs_config"
         file_contexts: Path = self.ctx.target_config_dir / f"{part_name}_file_contexts"
 
-        self.logger.info(f"Packing [{part_name}] as {pack_type}...")
+        self.logger.info(t('Packing [%s] as %s...'), part_name, pack_type)
         self._run_patch_tools(src_dir, fs_config, file_contexts)
 
         if pack_type == "EXT":
@@ -380,19 +381,17 @@ class Repacker:
             try:
                 patch_fs_config(src_dir, fs_config)
             except OSError as e:
-                self.logger.error(f"Error patching fs_config: {e}")
+                self.logger.error(t('Error patching fs_config: %s'), e)
         else:
-            self.logger.warning(f"fs_config not found for {src_dir.name}, skipping fspatch.")
+            self.logger.warning(t('fs_config not found for %s, skipping fspatch.'), src_dir.name)
 
         if file_contexts.exists():
             try:
                 self.selinux_patcher.patch(src_dir, file_contexts)
             except OSError as e:
-                self.logger.error(f"Error patching file_contexts: {e}")
+                self.logger.error(t('Error patching file_contexts: %s'), e)
         else:
-            self.logger.warning(
-                f"file_contexts not found for {src_dir.name}, skipping contextpatch."
-            )
+            self.logger.warning(t('file_contexts not found for %s, skipping contextpatch.'), src_dir.name)
 
     def _pack_erofs(
         self, part_name: str, src_dir: Path, img_output: Path, fs_config: Path, file_contexts: Path
@@ -414,9 +413,9 @@ class Repacker:
         ]
         try:
             self.shell.run(cmd)
-            self.logger.info(f"Successfully packed {part_name}.img (EROFS)")
+            self.logger.info(t('Successfully packed %s.img (EROFS)'), part_name)
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to pack {part_name}: {e}")
+            self.logger.error(t('Failed to pack %s: %s'), part_name, e)
 
     def _pack_ext4(
         self,
@@ -465,7 +464,7 @@ class Repacker:
             current_img_size: int = img_output.stat().st_size
             new_size: int = (current_img_size - free_size) // 4096 * 4096
 
-            self.logger.info(f"Regenerating {part_name}.img with optimized size: {new_size}")
+            self.logger.info(t('Regenerating %s.img with optimized size: %s'), part_name, new_size)
             img_output.unlink()
             self._make_ext4_image(
                 part_name,
@@ -539,7 +538,7 @@ class Repacker:
             output: str = subprocess.check_output(["du", "-sb", str(path)], text=True)
             return int(output.split()[0])
         except (subprocess.SubprocessError, ValueError, FileNotFoundError) as e:
-            self.logger.warning(f"du command failed, falling back to python: {e}")
+            self.logger.warning(t('du command failed, falling back to python: %s'), e)
             total: int = 0
             for p in path.rglob("*"):
                 if p.is_file() and not p.is_symlink():
@@ -559,11 +558,11 @@ class Repacker:
 
     def pack_super_image(self) -> None:
         """Pack super.img for non-payload.bin ROMs"""
-        self.logger.info("Packing super.img...")
+        self.logger.info(t('Packing super.img...'))
 
         lpmake_path: Path = self.ota_tools_dir / "bin" / "lpmake"
         if not lpmake_path.exists():
-            self.logger.error(f"lpmake not found at {lpmake_path}")
+            self.logger.error(t('lpmake not found at %s'), lpmake_path)
             return
 
         super_img: Path = self.ctx.target_dir / "super.img"
@@ -584,7 +583,7 @@ class Repacker:
         ]
 
         if not self.ctx.is_ab_device:
-            self.logger.info("Packing A-only super.img")
+            self.logger.info(t('Packing A-only super.img'))
             base_args.extend(
                 ["--metadata-slots", "2", "--group", f"qti_dynamic_partitions:{super_size}", "-F"]
             )
@@ -613,7 +612,7 @@ class Repacker:
                         ]
                     )
         else:
-            self.logger.info("Packing V-AB super.img")
+            self.logger.info(t('Packing V-AB super.img'))
             base_args.extend(
                 [
                     "--virtual-ab",
@@ -655,24 +654,24 @@ class Repacker:
 
         try:
             self.shell.run(base_args)
-            self.logger.info("super.img generated successfully.")
+            self.logger.info(t('super.img generated successfully.'))
         except subprocess.CalledProcessError as e:
-            self.logger.error(f"Failed to generate super.img: {e}")
+            self.logger.error(t('Failed to generate super.img: %s'), e)
             return
 
-        self.logger.info("Compressing super.img to super.zst...")
+        self.logger.info(t('Compressing super.img to super.zst...'))
         zst_path: Path = self.ctx.target_dir / "super.zst"
         try:
             self.shell.run(["zstd", "--rm", str(super_img), "-o", str(zst_path)])
-            self.logger.info("Compressed super.zst generated.")
+            self.logger.info(t('Compressed super.zst generated.'))
         except subprocess.CalledProcessError as e:
-            self.logger.warning(f"zstd compression failed: {e}.")
+            self.logger.warning(t('zstd compression failed: %s.'), e)
 
         self._generate_flash_script(zst_path if zst_path.exists() else super_img)
 
     def _generate_flash_script(self, super_image_path: Path) -> None:
         """Generate hybrid flashing scripts (Fastboot + Recovery)"""
-        self.logger.info("Generating hybrid flashing scripts...")
+        self.logger.info(t('Generating hybrid flashing scripts...'))
         out_name: str = f"{self.ctx.stock_rom_code}_{self.ctx.target_rom_version}_hybrid"
         out_path: Path = self.out_dir / out_name
 
@@ -687,7 +686,7 @@ class Repacker:
         meta_inf: Path = out_path / "META-INF/com/google/android"
         meta_inf.mkdir(parents=True, exist_ok=True)
 
-        self.logger.info(f"Copying {super_image_path.name}...")
+        self.logger.info(t('Copying %s...'), super_image_path.name)
         shutil.copy2(super_image_path, out_path / "super.zst")
 
         if self.ctx.repack_images_dir.exists():
@@ -728,7 +727,7 @@ class Repacker:
                             self._patch_update_binary_for_a_only(dest_path)
                         self._patch_update_binary_firmware(dest_path, firmware_update)
 
-        self.logger.info("Zipping hybrid package...")
+        self.logger.info(t('Zipping hybrid package...'))
         timestamp: str = datetime.now().strftime("%Y%m%d%H%M%S")
         final_zip_name: str = (
             f"{self.ctx.stock_rom_code}-hybrid-{self.ctx.target_rom_version}-{timestamp}.zip"
@@ -751,7 +750,7 @@ class Repacker:
         renamed_zip_name: str = f"{prefix}{device_tag}_Hybrid_{self.ctx.target_rom_version}_{self.ctx.security_patch}_{md5}_{timestamp}.zip"
         renamed_zip_path: Path = self.out_dir / renamed_zip_name
         final_zip_path.rename(renamed_zip_path)
-        self.logger.info(f"Hybrid ROM generated: {renamed_zip_path}")
+        self.logger.info(t('Hybrid ROM generated: %s'), renamed_zip_path)
         shutil.rmtree(out_path)
 
     def _process_script_placeholders(self, file_path: Path) -> None:
@@ -832,7 +831,7 @@ class Repacker:
             new_content: str = parts[0] + marker + "\n" + "\n".join(insertion) + parts[1]
             script_path.write_text(new_content, encoding="utf-8")
         else:
-            self.logger.warning(f"Marker '{marker}' not found in update-binary.")
+            self.logger.warning(t("Marker '%s' not found in update-binary."), marker)
 
     def _patch_script_for_firmware(self, script_path: Path, firmware_dir: Path) -> None:
         """Inject firmware flash commands"""
@@ -897,7 +896,7 @@ class Repacker:
         # Check device config first
         config_partitions = self.ctx.device_config.get("pack", {}).get("partitions")
         if config_partitions:
-            self.logger.info(f"Using partitions from device config: {config_partitions}")
+            self.logger.info(t('Using partitions from device config: %s'), config_partitions)
             return cast(List[str], config_partitions)
 
         # Check for auto-generated partition_info.json
@@ -910,10 +909,10 @@ class Repacker:
                     info = json.load(f)
                 partitions = info.get("dynamic_partitions", [])
                 if partitions:
-                    self.logger.info(f"Using partitions from partition_info.json: {partitions}")
+                    self.logger.info(t('Using partitions from partition_info.json: %s'), partitions)
                     return cast(List[str], partitions)
             except Exception as e:
-                self.logger.warning(f"Failed to read partition_info.json: {e}")
+                self.logger.warning(t('Failed to read partition_info.json: %s'), e)
 
         # Fall back to default list
         default_partitions = [
@@ -926,7 +925,7 @@ class Repacker:
             "system_dlkm",
             "vendor_dlkm",
         ]
-        self.logger.info(f"Using default partition list: {default_partitions}")
+        self.logger.info(t('Using default partition list: %s'), default_partitions)
         return default_partitions
 
     def _get_super_size(self) -> int:
@@ -935,7 +934,7 @@ class Repacker:
         if hasattr(self.ctx, "device_config"):
             super_size = self.ctx.device_config.get("pack", {}).get("super_size")
             if super_size:
-                self.logger.info(f"Using super_size from device config: {super_size}")
+                self.logger.info(t('Using super_size from device config: %s'), super_size)
                 return int(super_size)
 
         # 2. Check from partition_info.json
@@ -948,10 +947,10 @@ class Repacker:
                     info = json.load(f)
                 super_size = info.get("super_size")
                 if super_size:
-                    self.logger.info(f"Using super_size from partition_info.json: {super_size}")
+                    self.logger.info(t('Using super_size from partition_info.json: %s'), super_size)
                     return int(super_size)
             except Exception as e:
-                self.logger.debug(f"Failed to read super_size from partition_info.json: {e}")
+                self.logger.debug(t('Failed to read super_size from partition_info.json: %s'), e)
 
         # 3. Fallback to hardcoded map
         device_code: str = self.ctx.stock_rom_code.upper()
@@ -963,15 +962,15 @@ class Repacker:
         }
         for size, devices in size_map.items():
             if device_code in devices:
-                self.logger.info(f"Using super_size from built-in map for {device_code}: {size}")
+                self.logger.info(t('Using super_size from built-in map for %s: %s'), device_code, size)
                 return size
         default_size = 9126805504
-        self.logger.info(f"Using default super_size fallback for {device_code}: {default_size}")
+        self.logger.info(t('Using default super_size fallback for %s: %s'), device_code, default_size)
         return default_size
 
     def pack_ota_payload(self) -> None:
         """Pack AOSP OTA payload"""
-        self.logger.info("Starting OTA Payload packing...")
+        self.logger.info(t('Starting OTA Payload packing...'))
         if self.product_out.exists():
             shutil.rmtree(self.product_out)
         self.images_out.mkdir(parents=True, exist_ok=True)
@@ -996,7 +995,7 @@ class Repacker:
             ksu_boot: List[Path] = list(device_custom_dir.glob("boot*.img"))
             if ksu_boot:
                 shutil.copy2(ksu_boot[0], self.images_out / "boot.img")
-                self.logger.info(f"Replaced boot.img with {ksu_boot[0].name}")
+                self.logger.info(t('Replaced boot.img with %s'), ksu_boot[0].name)
             dtbo: List[Path] = list(device_custom_dir.glob("dtbo*.img"))
             if dtbo:
                 shutil.copy2(dtbo[0], self.images_out / "dtbo.img")
@@ -1034,14 +1033,14 @@ class Repacker:
                 stderr=subprocess.STDOUT,
             )
         except (subprocess.SubprocessError, FileNotFoundError) as e:
-            self.logger.debug("Failed to inspect %s via avbtool: %s", image.name, e)
+            self.logger.debug(t('Failed to inspect %s via avbtool: %s'), image.name, e)
             return None
         return parse_avbtool_info_output(output)
 
     def _get_avb_testkey_path(self) -> Optional[Path]:
         custom_key: Optional[Path] = getattr(self.ctx, "avb_key_path", None)
         if custom_key and custom_key.exists():
-            self.logger.info(f"Using custom AVB key: {custom_key}")
+            self.logger.info(t('Using custom AVB key: %s'), custom_key)
             return custom_key
 
         candidates = [
@@ -1062,10 +1061,10 @@ class Repacker:
                      "-out", str(pem_path), "-nocrypt"],
                     check=True, capture_output=True
                 )
-                self.logger.info(f"Generated AVB signing key from {pk8_path.name}")
+                self.logger.info(t('Generated AVB signing key from %s'), pk8_path.name)
                 return pem_path
             except Exception as e:
-                self.logger.warning(f"Failed to generate key from {pk8_path}: {e}")
+                self.logger.warning(t('Failed to generate key from %s: %s'), pk8_path, e)
 
         return None
 
@@ -1154,7 +1153,7 @@ class Repacker:
         partition_info_path.write_text(
             json.dumps(payload, indent=4, ensure_ascii=False) + "\n", encoding="utf-8"
         )
-        self.logger.info("Updated %s with stock AVB partition data.", partition_info_path)
+        self.logger.info(t('Updated %s with stock AVB partition data.'), partition_info_path)
 
     def _calc_avb_max_image_size(self, avbtool: Path, footer_cmd: str, partition_size: int) -> int:
         output = subprocess.check_output(
@@ -1246,12 +1245,7 @@ class Repacker:
                         "and tail is not zero padding; refusing to truncate."
                     )
                 fp.truncate(max_size)
-            self.logger.info(
-                "Trimmed zero padding for %s: %d -> %d bytes before AVB footer.",
-                image.name,
-                current_size,
-                max_size,
-            )
+            self.logger.info(t('Trimmed zero padding for %s: %d -> %d bytes before AVB footer.'), image.name, current_size, max_size)
             return max_size
 
         def resolve_partition_size(part: str, footer_cmd: str, image_size: int) -> int:
@@ -1321,13 +1315,7 @@ class Repacker:
             try:
                 self.shell.run(cmd, env=self._avb_env())
                 self._avb_partition_size[part] = partition_size
-                self.logger.info(
-                    "Applied %s footer for AVB partition %s (image=%d, partition=%d)",
-                    footer_cmd,
-                    part,
-                    image_size,
-                    partition_size,
-                )
+                self.logger.info(t('Applied %s footer for AVB partition %s (image=%d, partition=%d)'), footer_cmd, part, image_size, partition_size)
             except subprocess.CalledProcessError as e:
                 # Retry once for strict partitions by trimming zero padding.
                 if part in strict_physical_caps and stock_partition_size > 0:
@@ -1339,13 +1327,7 @@ class Repacker:
                         cmd = build_cmd(partition_size)
                         self.shell.run(cmd, env=self._avb_env())
                         self._avb_partition_size[part] = partition_size
-                        self.logger.info(
-                            "Applied %s footer for AVB partition %s after trim (image=%d, partition=%d)",
-                            footer_cmd,
-                            part,
-                            image_size,
-                            partition_size,
-                        )
+                        self.logger.info(t('Applied %s footer for AVB partition %s after trim (image=%d, partition=%d)'), footer_cmd, part, image_size, partition_size)
                         return
                     except (subprocess.CalledProcessError, RuntimeError) as retry_err:
                         raise RuntimeError(
@@ -1400,13 +1382,13 @@ class Repacker:
         """Rebuild vbmeta images so the AVB chain matches repacked images."""
         profile = self._collect_stock_avb_profile()
         if not profile:
-            self.logger.info("Skipping vbmeta rebuild: stock AVB profile unavailable.")
+            self.logger.info(t('Skipping vbmeta rebuild: stock AVB profile unavailable.'))
             return
 
         avbtool = self.ota_tools_dir / "bin" / "avbtool"
         key_path = self._get_avb_testkey_path()
         if not avbtool.exists() or not key_path:
-            self.logger.info("Skipping vbmeta rebuild: avbtool or signing key unavailable.")
+            self.logger.info(t('Skipping vbmeta rebuild: avbtool or signing key unavailable.'))
             return
 
         known_parts = set(partition_list)
@@ -1454,10 +1436,7 @@ class Repacker:
                     ]
                 )
             self.shell.run(cmd, env=self._avb_env())
-            self.logger.info(
-                "Rebuilt vbmeta_system.img with partitions: %s",
-                ", ".join(vbmeta_system_parts),
-            )
+            self.logger.info(t('Rebuilt vbmeta_system.img with partitions: %s'), ', '.join(vbmeta_system_parts))
 
         include_parts = sorted((hash_parts | hashtree_parts) & known_parts)
         if vbmeta_system_parts:
@@ -1504,17 +1483,13 @@ class Repacker:
         for name, loc in chain_entries:
             cmd.extend(["--chain_partition", f"{name}:{loc}:{pubkey_path}"])
         self.shell.run(cmd, env=self._avb_env())
-        self.logger.info(
-            "Rebuilt vbmeta.img with include=%s chain=%s",
-            ",".join(include_parts),
-            ",".join(f"{name}:{loc}" for name, loc in chain_entries),
-        )
+        self.logger.info(t('Rebuilt vbmeta.img with include=%s chain=%s'), ','.join(include_parts), ','.join((f'{name}:{loc}' for name, loc in chain_entries)))
 
     def _verify_avb_images(self) -> None:
         """Verify top-level vbmeta and chained partitions before OTA packaging."""
         vbmeta_img = self.images_out / "vbmeta.img"
         if not vbmeta_img.exists():
-            self.logger.info("Skipping AVB verification: vbmeta.img not found in IMAGES.")
+            self.logger.info(t('Skipping AVB verification: vbmeta.img not found in IMAGES.'))
             return
 
         avbtool = self.ota_tools_dir / "bin" / "avbtool"
@@ -1529,7 +1504,7 @@ class Repacker:
             "--follow_chain_partitions",
         ]
         self.shell.run(cmd, env=self._avb_env())
-        self.logger.info("AVB verification succeeded for vbmeta chain.")
+        self.logger.info(t('AVB verification succeeded for vbmeta chain.'))
 
     def _generate_care_map(self) -> None:
         """Generate care_map.pb for AVB hashtree-enabled partitions.
@@ -1539,19 +1514,19 @@ class Repacker:
         """
         profile = self._collect_stock_avb_profile()
         if not profile:
-            self.logger.info("Skipping care_map generation: stock AVB profile unavailable.")
+            self.logger.info(t('Skipping care_map generation: stock AVB profile unavailable.'))
             return
 
         care_map_gen = self.ota_tools_dir / "bin" / "care_map_generator"
         if not care_map_gen.exists():
-            self.logger.warning("care_map_generator not found, skipping care_map.pb generation.")
+            self.logger.warning(t('care_map_generator not found, skipping care_map.pb generation.'))
             return
 
         # Partitions that should be included in care_map (hashtree-enabled partitions)
         # These are typically the large dynamic partitions with dm-verity
         hashtree_parts = cast(set[str], profile.get("hashtree_parts", set()))
         if not hashtree_parts:
-            self.logger.info("No hashtree partitions found, skipping care_map generation.")
+            self.logger.info(t('No hashtree partitions found, skipping care_map generation.'))
             return
 
         # Build care_map text content
@@ -1563,7 +1538,7 @@ class Repacker:
         for part in sorted(hashtree_parts):
             image = self.images_out / f"{part}.img"
             if not image.exists():
-                self.logger.debug("Skipping %s: image not found", part)
+                self.logger.debug(t('Skipping %s: image not found'), part)
                 continue
 
             # Add partition entry
@@ -1579,10 +1554,10 @@ class Repacker:
             # Format: start_block,end_block (exclusive)
             care_map_lines.append(f"0,{num_blocks}")
 
-            self.logger.debug("Added %s to care_map (%d blocks)", part, num_blocks)
+            self.logger.debug(t('Added %s to care_map (%d blocks)'), part, num_blocks)
 
         if not care_map_lines:
-            self.logger.info("No valid partitions for care_map, skipping generation.")
+            self.logger.info(t('No valid partitions for care_map, skipping generation.'))
             return
 
         # Write intermediate text file
@@ -1600,12 +1575,9 @@ class Repacker:
 
         try:
             self.shell.run(cmd, env=self._avb_env())
-            self.logger.info(
-                "Generated care_map.pb with partitions: %s",
-                ", ".join(sorted(hashtree_parts))
-            )
+            self.logger.info(t('Generated care_map.pb with partitions: %s'), ', '.join(sorted(hashtree_parts)))
         except subprocess.CalledProcessError as e:
-            self.logger.warning("Failed to generate care_map.pb: %s", e)
+            self.logger.warning(t('Failed to generate care_map.pb: %s'), e)
             # Don't fail the build if care_map generation fails
             # Clean up the text file if pb generation failed
             if care_map_txt.exists():
@@ -1634,9 +1606,7 @@ class Repacker:
         )
         testkey = self._get_avb_testkey_path()
         if not testkey:
-            self.logger.warning(
-                "AVB testkey not found under otatools; skipping AVB misc_info hints."
-            )
+            self.logger.warning(t('AVB testkey not found under otatools; skipping AVB misc_info hints.'))
             return []
         key_algo = self._algorithm_for_key(AVB_DEFAULT_ALGORITHM, testkey)
 
@@ -1728,7 +1698,7 @@ class Repacker:
 
     def _generate_meta_info(self) -> None:
         """Generate ab_partitions.txt, dynamic_partitions_info.txt, misc_info.txt"""
-        self.logger.info("Generating META info...")
+        self.logger.info(t('Generating META info...'))
         self.meta_out.mkdir(parents=True, exist_ok=True)
         partition_list: List[str] = [
             img.stem for img in self.images_out.glob("*.img") if img.stem != "cust"
@@ -1738,11 +1708,7 @@ class Repacker:
                 f.write(f"{p}\n")
 
         super_size: int = self._get_super_size()
-        self.logger.info(
-            "Current packing super_size: %d bytes (%.2f GiB)",
-            super_size,
-            super_size / (1024**3),
-        )
+        self.logger.info(t('Current packing super_size: %d bytes (%.2f GiB)'), super_size, super_size / 1024 ** 3)
         group_size: int = super_size - 1048576
         super_parts: List[str] = [
             p
@@ -1781,10 +1747,7 @@ class Repacker:
             dp_lines.append(f"virtual_ab_compression_method={compression_method}")
             dp_lines.append(f"virtual_ab_cow_version={cow_version}")
             dp_lines.append(f"virtual_ab_compression_factor={compression_factor}")
-            self.logger.info(
-                f"Virtual A/B compression enabled: method={compression_method}, "
-                f"cow_version={cow_version}, factor={compression_factor}"
-            )
+            self.logger.info(t('Virtual A/B compression enabled: method=%s, cow_version=%s, factor=%s'), compression_method, cow_version, compression_factor)
 
         with open(self.meta_out / "dynamic_partitions_info.txt", "w") as f:
             f.write("\n".join(dp_lines) + "\n")
@@ -1834,11 +1797,11 @@ class Repacker:
                 dest_dir.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(src_prop, dest_dir / "build.prop")
             else:
-                self.logger.warning(f"build.prop for {part_lower} not found.")
+                self.logger.warning(t('build.prop for %s not found.'), part_lower)
 
     def _run_ota_tool(self) -> None:
         """Call ota_from_target_files to generate ZIP"""
-        self.logger.info("Running ota_from_target_files...")
+        self.logger.info(t('Running ota_from_target_files...'))
         timestamp: str = datetime.now().strftime("%Y%m%d%H%M%S")
         output_zip: Path = self.out_dir / f"{self.ctx.stock_rom_code}-ota_full-{timestamp}.zip"
         key_path: Path = self.ota_tools_dir / "security" / "testkey"
@@ -1872,6 +1835,6 @@ class Repacker:
                 / f"{prefix}{device_tag}-ota_full-{self.ctx.target_rom_version}-{self.ctx.security_patch}-{timestamp}-{md5}-{self.ctx.port_android_version}.zip"
             )
             output_zip.rename(final_path)
-            self.logger.info(f"Final OTA Package: {final_path}")
+            self.logger.info(t('Final OTA Package: %s'), final_path)
         except (subprocess.CalledProcessError, OSError) as e:
-            self.logger.error(f"OTA generation failed: {e}")
+            self.logger.error(t('OTA generation failed: %s'), e)

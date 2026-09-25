@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -21,7 +22,7 @@ class InstallerModifier(ApkModifierPlugin):
     
     def _apply_patches(self, work_dir: Path):
         """Apply all installer patches."""
-        self.logger.info("Processing MIUIPackageInstaller.apk...")
+        self.logger.info(t('Processing MIUIPackageInstaller.apk...'))
         
         # 1. Disable install risk switches
         self._disable_install_risk_switches(work_dir)
@@ -43,7 +44,7 @@ class InstallerModifier(ApkModifierPlugin):
     
     def _disable_install_risk_switches(self, work_dir: Path):
         """Disable risk install switches by changing return values to False."""
-        self.logger.info("Disabling risk install switches...")
+        self.logger.info(t('Disabling risk install switches...'))
         
         targets = [
             "\"secure_verify_enable\"", 
@@ -62,7 +63,7 @@ class InstallerModifier(ApkModifierPlugin):
     
     def _disable_safemode(self, work_dir: Path):
         """Disable Safe Mode."""
-        self.logger.info("Disabling Safe Mode...")
+        self.logger.info(t('Disabling Safe Mode...'))
         
         # PART 1: Modify MiuiSettings$Ad
         self.smali_seek_and_replace(
@@ -75,7 +76,7 @@ class InstallerModifier(ApkModifierPlugin):
         # PART 2: Modify SafeModeTipViewObject
         tip_file = self._find_file(work_dir, "SafeModeTipViewObject.smali")
         if not tip_file:
-            self.logger.warning("SafeModeTipViewObject.smali not found.")
+            self.logger.warning(t('SafeModeTipViewObject.smali not found.'))
             return
         
         # Find parent class
@@ -136,7 +137,7 @@ class InstallerModifier(ApkModifierPlugin):
     
     def _disable_full_safe_version(self, work_dir: Path):
         """Disable Full Safe Version."""
-        self.logger.info("Disabling Full Safe Version...")
+        self.logger.info(t('Disabling Full Safe Version...'))
         
         # PART 1: Hook installer_full_safe_version
         self.smali_seek_and_replace(
@@ -222,7 +223,7 @@ class InstallerModifier(ApkModifierPlugin):
     
     def _remove_network_error_ui(self, work_dir: Path):
         """Remove Network Error UI."""
-        self.logger.info("Removing Network Error UI...")
+        self.logger.info(t('Removing Network Error UI...'))
 
         # Find Layout IDs and disable their usage
         layout_ids = [
@@ -233,7 +234,7 @@ class InstallerModifier(ApkModifierPlugin):
         for layout_id in layout_ids:
             # Note: In a real implementation, we'd need to parse public.xml
             # to get the actual ID number, then patch methods using that ID
-            self.logger.debug(f"Would disable layout: {layout_id}")
+            self.logger.debug(t('Would disable layout: %s'), layout_id)
     
     def _find_file(self, work_dir: Path, filename: str) -> Path | None:
         """Find a file in work directory."""

@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -21,7 +22,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
     
     def _apply_patches(self, work_dir: Path):
         """Apply all SecurityCenter patches."""
-        self.logger.info("Processing SecurityCenter.apk...")
+        self.logger.info(t('Processing SecurityCenter.apk...'))
         
         # 1. Battery Health (SOH) Patch
         self._patch_battery_health(work_dir)
@@ -40,7 +41,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
     
     def _patch_battery_health(self, work_dir: Path):
         """Apply Battery Health (SOH) patch."""
-        self.logger.info("Applying Battery Health Patch...")
+        self.logger.info(t('Applying Battery Health Patch...'))
         
         # Find ChargeProtectFragment handler
         target_file = None
@@ -51,7 +52,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
                 break
         
         if not target_file:
-            self.logger.warning("ChargeProtectFragment handler not found, skipping SOH patch.")
+            self.logger.warning(t('ChargeProtectFragment handler not found, skipping SOH patch.'))
             return
         
         # Auto-detect WeakReference field
@@ -59,11 +60,11 @@ class SecurityCenterModifier(ApkModifierPlugin):
         match = re.search(r"\.field.* ([a-zA-Z0-9_]+):Ljava/lang/ref/WeakReference;", content)
         
         if not match:
-            self.logger.warning("WeakReference field not detected, skipping SOH patch.")
+            self.logger.warning(t('WeakReference field not detected, skipping SOH patch.'))
             return
         
         weak_ref_field = match.group(1)
-        self.logger.info(f"Detected WeakReference field: {weak_ref_field}")
+        self.logger.info(t('Detected WeakReference field: %s'), weak_ref_field)
         
         # Step 1: Writer
         writer_code = """
@@ -112,11 +113,11 @@ class SecurityCenterModifier(ApkModifierPlugin):
             method="handleMessage", 
             regex_replace=(r"return-void", f"{reader_code}\n    return-void")
         )
-        self.logger.info("Battery Health patch applied successfully")
+        self.logger.info(t('Battery Health patch applied successfully'))
     
     def _patch_temperature(self, work_dir: Path):
         """Patch battery temperature display."""
-        self.logger.info("Applying Temperature Patch...")
+        self.logger.info(t('Applying Temperature Patch...'))
         
         target_file = None
         for f in work_dir.rglob("ChargeProtectFragment$*.smali"):
@@ -125,7 +126,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
                 break
         
         if not target_file:
-            self.logger.warning("ChargeProtectFragment handler not found, skipping temperature patch.")
+            self.logger.warning(t('ChargeProtectFragment handler not found, skipping temperature patch.'))
             return
         
         content = target_file.read_text(encoding='utf-8', errors='ignore')
@@ -184,7 +185,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
     
     def _remove_battery_lock(self, work_dir: Path):
         """Remove battery capacity lock."""
-        self.logger.info("Removing Battery Capacity Lock...")
+        self.logger.info(t('Removing Battery Capacity Lock...'))
         remake_code = """
     .locals 5
     invoke-static {p0, p1}, Ljava/lang/Math;->max(II)I
@@ -198,7 +199,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
     
     def _add_capacity_info(self, work_dir: Path):
         """Add detailed battery capacity info."""
-        self.logger.info("Adding Detailed Battery Info...")
+        self.logger.info(t('Adding Detailed Battery Info...'))
         
         res_dir = self.xml.get_res_dir(work_dir)
         
@@ -326,7 +327,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
     
     def _remove_intercept_timer(self, work_dir: Path):
         """Remove intercept timer on permission page."""
-        self.logger.info("Removing Intercept Timer...")
+        self.logger.info(t('Removing Intercept Timer...'))
         res_dir = self.xml.get_res_dir(work_dir)
         
         target_values_dir = None
@@ -355,7 +356,7 @@ class SecurityCenterModifier(ApkModifierPlugin):
                     break
         
         if not str_name:
-            self.logger.warning(f"Resource string '{string_keyword}' not found.")
+            self.logger.warning(t("Resource string '%s' not found."), string_keyword)
             return
 
         str_id = self.xml.get_id(res_dir, str_name)

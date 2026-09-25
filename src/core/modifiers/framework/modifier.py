@@ -13,6 +13,7 @@ from src.core.modifiers.framework.patches import (
     RETRUN_TRUE,
 )
 from src.core.modifiers.framework.tasks import FrameworkTasks
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.context import PortingContext
@@ -39,7 +40,7 @@ class FrameworkModifier(FrameworkTasks):
 
     def run(self) -> None:
         """Execute all framework modifications."""
-        self.logger.info("Starting Framework Modification...")
+        self.logger.info(t('Starting Framework Modification...'))
         self.temp_dir.mkdir(parents=True, exist_ok=True)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
@@ -52,7 +53,7 @@ class FrameworkModifier(FrameworkTasks):
                 try:
                     future.result()
                 except Exception as e:
-                    self.logger.error(f"Framework modification failed: {e}")
+                    self.logger.error(t('Framework modification failed: %s'), e)
 
         self._inject_xeu_toolbox()
-        self.logger.info("Framework Modification Completed.")
+        self.logger.info(t('Framework Modification Completed.'))

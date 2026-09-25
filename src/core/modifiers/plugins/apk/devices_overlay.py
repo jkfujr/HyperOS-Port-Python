@@ -6,6 +6,7 @@ import re
 from pathlib import Path
 
 from src.core.modifiers.plugins.apk.base import ApkModifierPlugin, ApkModifierRegistry
+from src.utils.i18n import t
 
 
 @ApkModifierRegistry.register
@@ -31,15 +32,15 @@ class DevicesOverlayModifier(ApkModifierPlugin):
             base_version = 0
         
         if base_version >= 16:
-            self.logger.info(f"Stock Android version is {base_version} (>= 16). Skipping AOD fix.")
+            self.logger.info(t('Stock Android version is %s (>= 16). Skipping AOD fix.'), base_version)
             return False
         
         return super().check_prerequisites()
     
     def _apply_patches(self, work_dir: Path):
         """Apply AOD and fingerprint fixes."""
-        self.logger.info("Processing DevicesAndroidOverlay.apk...")
-        self.logger.info("Fixing AOD and under-display fingerprint issues...")
+        self.logger.info(t('Processing DevicesAndroidOverlay.apk...'))
+        self.logger.info(t('Fixing AOD and under-display fingerprint issues...'))
         
         # Pattern to match and replace
         pattern = re.compile(r'(<string\s+name="config_dozeComponent">)[^<]*')
@@ -56,9 +57,9 @@ class DevicesOverlayModifier(ApkModifierPlugin):
                     
                     if new_content != content:
                         xml_file.write_text(new_content, encoding='utf-8')
-                        self.logger.debug(f"Patched {xml_file.name}")
+                        self.logger.debug(t('Patched %s'), xml_file.name)
                         modified_count += 1
             except Exception as e:
-                self.logger.warning(f"Failed to patch {xml_file}: {e}")
+                self.logger.warning(t('Failed to patch %s: %s'), xml_file, e)
         
-        self.logger.info(f"Modified {modified_count} XML file(s)")
+        self.logger.info(t('Modified %s XML file(s)'), modified_count)

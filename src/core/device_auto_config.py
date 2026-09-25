@@ -13,6 +13,7 @@ from typing import Any, Dict, List, Optional
 
 from src.core.config_loader import ConfigMerger
 from src.utils.payload_dumper import PayloadDumperOutput, extract_device_info
+from src.utils.i18n import t
 
 logger = logging.getLogger("device_auto_config")
 
@@ -69,7 +70,7 @@ class DeviceAutoConfig:
             Path to created config directory
         """
         self.config_dir.mkdir(parents=True, exist_ok=True)
-        logger.info(f"Created device config directory: {self.config_dir}")
+        logger.info(t('Created device config directory: %s'), self.config_dir)
         return self.config_dir
 
     def generate_config_json(self) -> Path:
@@ -93,7 +94,7 @@ class DeviceAutoConfig:
         with open(config_path, "w", encoding="utf-8") as f:
             json.dump(config, f, indent=4, ensure_ascii=False)
 
-        logger.info(f"Generated config.json: {config_path}")
+        logger.info(t('Generated config.json: %s'), config_path)
         return config_path
 
     def generate_features_json(self) -> Path:
@@ -119,7 +120,7 @@ class DeviceAutoConfig:
         with open(features_path, "w", encoding="utf-8") as f:
             json.dump(features, f, indent=4, ensure_ascii=False)
 
-        logger.info(f"Generated features.json: {features_path}")
+        logger.info(t('Generated features.json: %s'), features_path)
         return features_path
 
     def generate_replacements_json(self) -> Path:
@@ -146,7 +147,7 @@ class DeviceAutoConfig:
         with open(replacements_path, "w", encoding="utf-8") as f:
             json.dump(replacements, f, indent=4, ensure_ascii=False)
 
-        logger.info(f"Generated replacements.json: {replacements_path}")
+        logger.info(t('Generated replacements.json: %s'), replacements_path)
         return replacements_path
 
     def generate_props_json(self) -> Optional[Path]:
@@ -197,7 +198,7 @@ class DeviceAutoConfig:
         with open(props_path, "w", encoding="utf-8") as f:
             json.dump(relevant_props, f, indent=4, ensure_ascii=False)
 
-        logger.info(f"Generated props.json: {props_path}")
+        logger.info(t('Generated props.json: %s'), props_path)
         return props_path
 
     def _get_super_size(self) -> int:
@@ -206,7 +207,7 @@ class DeviceAutoConfig:
             first_group = self.payload_info.dynamic_partition_groups[0]
             super_size = first_group.size
             if super_size:
-                logger.info(f"Using super_size from payload: {super_size}")
+                logger.info(t('Using super_size from payload: %s'), super_size)
                 return super_size
 
         device_code = self.device_code.upper()
@@ -266,7 +267,7 @@ class DeviceAutoConfig:
         with open(info_path, "w", encoding="utf-8") as f:
             json.dump(partition_info, f, indent=4, ensure_ascii=False)
 
-        logger.info(f"Generated partition_info.json: {info_path}")
+        logger.info(t('Generated partition_info.json: %s'), info_path)
         return info_path
 
     def setup_device(self) -> Dict[str, Any]:
@@ -279,19 +280,16 @@ class DeviceAutoConfig:
             Merged device configuration dictionary
         """
         if self.config_exists():
-            logger.info(f"Device config already exists for {self.device_code}")
+            logger.info(t('Device config already exists for %s'), self.device_code)
             partition_info_path = self.config_dir / "partition_info.json"
             if not partition_info_path.exists():
-                logger.info(
-                    "partition_info.json missing for %s, generating it now.",
-                    self.device_code,
-                )
+                logger.info(t('partition_info.json missing for %s, generating it now.'), self.device_code)
                 self.create_partition_info()
 
             merger = ConfigMerger(logger)
             return merger.load_device_config(self.device_code)
 
-        logger.info(f"Setting up new device configuration for {self.device_code}")
+        logger.info(t('Setting up new device configuration for %s'), self.device_code)
 
         # Create directory
         self.create_config_directory()
@@ -307,7 +305,7 @@ class DeviceAutoConfig:
         merger = ConfigMerger(logger)
         config = merger.load_device_config(self.device_code)
 
-        logger.info(f"Device configuration setup complete for {self.device_code}")
+        logger.info(t('Device configuration setup complete for %s'), self.device_code)
         return config
 
 
@@ -348,7 +346,7 @@ def auto_configure_device(
             device_code, payload_info = extract_device_info(payload_path, fallback_device_code)
         except Exception as e:
             logger = logger or logging.getLogger("device_auto_config")
-            logger.warning(f"Failed to extract device info: {e}")
+            logger.warning(t('Failed to extract device info: %s'), e)
             if fallback_device_code:
                 device_code = fallback_device_code
                 payload_info = PayloadDumperOutput()
@@ -387,14 +385,11 @@ def get_or_create_device_config(
     # If config exists, just load it
     if config_dir.exists() and any(config_dir.iterdir()):
         if logger:
-            logger.info(f"Loading existing config for {device_code}")
+            logger.info(t('Loading existing config for %s'), device_code)
         partition_info_path = config_dir / "partition_info.json"
         if not partition_info_path.exists():
             if logger:
-                logger.info(
-                    "partition_info.json missing for %s, auto-generating...",
-                    device_code,
-                )
+                logger.info(t('partition_info.json missing for %s, auto-generating...'), device_code)
             auto_config = DeviceAutoConfig(
                 device_code,
                 payload_info or PayloadDumperOutput(),
@@ -407,7 +402,7 @@ def get_or_create_device_config(
 
     # Config doesn't exist, try to auto-create
     if logger:
-        logger.info(f"No config found for {device_code}, attempting auto-configuration")
+        logger.info(t('No config found for %s, attempting auto-configuration'), device_code)
 
     if not payload_path and payload_info is None:
         raise RuntimeError(
@@ -454,5 +449,5 @@ def update_partition_info(
     with open(info_path, "w", encoding="utf-8") as f:
         json.dump(partition_info, f, indent=4, ensure_ascii=False)
 
-    logger.info(f"Updated partition_info.json for {device_code}")
+    logger.info(t('Updated partition_info.json for %s'), device_code)
     return info_path

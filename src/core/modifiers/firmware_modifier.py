@@ -10,6 +10,7 @@ from typing import Optional
 
 from src.core.modifiers.base_modifier import BaseModifier
 from src.utils.shell import ShellRunner
+from src.utils.i18n import t
 
 
 class FirmwareModifier(BaseModifier):
@@ -21,7 +22,7 @@ class FirmwareModifier(BaseModifier):
         self.bin_dir = Path("bin").resolve()
 
         if not self.ctx.tools.magiskboot.exists():
-            self.logger.error(f"magiskboot binary not found at {self.ctx.tools.magiskboot}")
+            self.logger.error(t('magiskboot binary not found at %s'), self.ctx.tools.magiskboot)
             return
 
         self.assets_dir = self.bin_dir.parent / "assets"
@@ -53,18 +54,18 @@ class FirmwareModifier(BaseModifier):
 
     def run(self):
         """Execute all firmware modifications."""
-        self.logger.info("Starting Firmware Modification...")
+        self.logger.info(t('Starting Firmware Modification...'))
 
         kmi_version = self._get_kmi_version()
         if kmi_version:
-            self.logger.info(f"Detected KMI Version: {kmi_version}")
+            self.logger.info(t('Detected KMI Version: %s'), kmi_version)
 
         self._patch_vbmeta()
 
         if getattr(self.ctx, "enable_ksu", False):
             self._patch_ksu(kmi_version)
 
-        self.logger.info("Firmware Modification Completed.")
+        self.logger.info(t('Firmware Modification Completed.'))
 
     def _get_kmi_version(self) -> Optional[str]:
         """Get KMI version from boot or init_boot image."""
@@ -85,12 +86,12 @@ class FirmwareModifier(BaseModifier):
 
     def _patch_vbmeta(self):
         """Patch vbmeta.img to disable AVB."""
-        self.logger.info("Patching vbmeta.img (Disabling AVB)...")
+        self.logger.info(t('Patching vbmeta.img (Disabling AVB)...'))
 
         vbmeta_img = self.ctx.target_dir / "repack_images" / "vbmeta.img"
 
         if not vbmeta_img.exists():
-            self.logger.warning("vbmeta.img not found in repack_images directory.")
+            self.logger.warning(t('vbmeta.img not found in repack_images directory.'))
             return
 
         AVB_MAGIC = b"AVB0"
@@ -102,19 +103,19 @@ class FirmwareModifier(BaseModifier):
             with open(vbmeta_img, "r+b") as f:
                 magic = f.read(4)
                 if magic != AVB_MAGIC:
-                    self.logger.warning(f"Skipping {vbmeta_img.name}: Invalid AVB Magic")
+                    self.logger.warning(t('Skipping %s: Invalid AVB Magic'), vbmeta_img.name)
                     return
 
                 f.seek(FLAGS_OFFSET)
                 f.write(FLAGS_TO_SET)
-                self.logger.info(f"Successfully patched: {vbmeta_img.name}")
+                self.logger.info(t('Successfully patched: %s'), vbmeta_img.name)
 
         except Exception as e:
-            self.logger.error(f"Failed to patch {vbmeta_img.name}: {e}")
+            self.logger.error(t('Failed to patch %s: %s'), vbmeta_img.name, e)
 
     def _patch_ksu(self, kmi_version: Optional[str] = None):
         """Patch KernelSU into boot image."""
-        self.logger.info("Attempting to patch KernelSU...")
+        self.logger.info(t('Attempting to patch KernelSU...'))
 
         target_init_boot = self.ctx.target_dir / "repack_images" / "init_boot.img"
         target_boot = self.ctx.target_dir / "repack_images" / "boot.img"
@@ -126,24 +127,24 @@ class FirmwareModifier(BaseModifier):
             patch_target = target_boot
 
         if not patch_target:
-            self.logger.warning("Neither init_boot.img nor boot.img found, skipping KSU patch.")
+            self.logger.warning(t('Neither init_boot.img nor boot.img found, skipping KSU patch.'))
             return
 
         if not self.ctx.tools.magiskboot.exists():
-            self.logger.error("magiskboot binary not found!")
+            self.logger.error(t('magiskboot binary not found!'))
             return
 
         if not kmi_version:
             kmi_version = self._analyze_kmi(target_boot if target_boot.exists() else patch_target)
 
         if not kmi_version:
-            self.logger.error("Failed to determine KMI version.")
+            self.logger.error(t('Failed to determine KMI version.'))
             return
 
-        self.logger.info(f"Detected KMI Version: {kmi_version}")
+        self.logger.info(t('Detected KMI Version: %s'), kmi_version)
 
         if not self._prepare_ksu_assets(kmi_version):
-            self.logger.error("Failed to prepare KSU assets.")
+            self.logger.error(t('Failed to prepare KSU assets.'))
             return
 
         self._apply_ksu_patch(patch_target, kmi_version)
@@ -157,12 +158,12 @@ class FirmwareModifier(BaseModifier):
             try:
                 self.shell.run([str(self.ctx.tools.magiskboot), "unpack", "boot.img"], cwd=tmp_path)
             except Exception as e:
-                self.logger.debug(f"Magiskboot unpack failed: {e}")
+                self.logger.debug(t('Magiskboot unpack failed: %s'), e)
                 return None
 
             kernel_file = tmp_path / "kernel"
             if not kernel_file.exists():
-                self.logger.debug("Kernel file not found after unpack.")
+                self.logger.debug(t('Kernel file not found after unpack.'))
                 return None
 
             try:
@@ -186,9 +187,9 @@ class FirmwareModifier(BaseModifier):
                         if match:
                             return f"{match.group(2)}-{match.group(1)}"
             except Exception as e:
-                self.logger.error(f"Error parsing kernel file: {e}")
+                self.logger.error(t('Error parsing kernel file: %s'), e)
 
-        self.logger.warning("Could not find KMI version pattern in kernel.")
+        self.logger.warning(t('Could not find KMI version pattern in kernel.'))
         return None
 
     def _prepare_ksu_assets(self, kmi_version):
@@ -217,7 +218,7 @@ class FirmwareModifier(BaseModifier):
         if target_ko.exists() and target_init.exists():
             return True
 
-        self.logger.info("Downloading KernelSU assets...")
+        self.logger.info(t('Downloading KernelSU assets...'))
         try:
             api_url = self.ksu_config_url_template.format(
                 owner=self.repo_owner, repo=self.repo_name
@@ -239,18 +240,18 @@ class FirmwareModifier(BaseModifier):
             return target_ko.exists() and target_init.exists()
 
         except Exception as e:
-            self.logger.error(f"Download failed: {e}")
+            self.logger.error(t('Download failed: %s'), e)
             return False
 
     def _download_file(self, url, dest):
         """Download a file from URL."""
-        self.logger.info(f"Downloading {dest.name}...")
+        self.logger.info(t('Downloading %s...'), dest.name)
         with urllib.request.urlopen(url) as remote, open(dest, "wb") as local:
             shutil.copyfileobj(remote, local)
 
     def _apply_ksu_patch(self, target_img, kmi_version):
         """Apply KernelSU patch to boot image."""
-        self.logger.info(f"Patching {target_img.name} with KernelSU...")
+        self.logger.info(t('Patching %s with KernelSU...'), target_img.name)
 
         # Allow for customization of file paths from config
         if hasattr(self.ctx, "device_config") and self.ctx.device_config:
@@ -273,7 +274,7 @@ class FirmwareModifier(BaseModifier):
 
             ramdisk = tmp_path / "ramdisk.cpio"
             if not ramdisk.exists():
-                self.logger.error("ramdisk.cpio not found")
+                self.logger.error(t('ramdisk.cpio not found'))
                 return
 
             self.shell.run(
@@ -313,6 +314,6 @@ class FirmwareModifier(BaseModifier):
             new_img = tmp_path / "new-boot.img"
             if new_img.exists():
                 shutil.move(new_img, target_img)
-                self.logger.info(f"KernelSU injected successfully into {target_img.name}.")
+                self.logger.info(t('KernelSU injected successfully into %s.'), target_img.name)
             else:
-                self.logger.error(f"Failed to repack {target_img.name}")
+                self.logger.error(t('Failed to repack %s'), target_img.name)

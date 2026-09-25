@@ -12,6 +12,7 @@ from src.utils.shell import ShellRunner
 
 from .constants import ANDROID_LOGICAL_PARTITIONS, RomType
 from .utils import compute_file_hash, load_single_prop_file, sort_prop_priority
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.cache_manager import PortRomCacheManager
@@ -62,7 +63,7 @@ class RomPackage:
 
         if self.path.is_dir():
             self.rom_type = RomType.LOCAL_DIR
-            self.logger.info(f"[{self.label}] Source is a local directory.")
+            self.logger.info(t('[%s] Source is a local directory.'), self.label)
             # If in directory mode, assume it's the working directory
             self.work_dir = self.path
             self.images_dir = self.path / "images"  # Adapting to AOSP structure
@@ -86,7 +87,7 @@ class RomPackage:
         elif self.path.suffix == ".tgz":
             self.rom_type = RomType.FASTBOOT
 
-        self.logger.info(f"[{self.label}] Detected Type: {self.rom_type.name}")
+        self.logger.info(t('[%s] Detected Type: %s'), self.label, self.rom_type.name)
 
     def extract_images(self, partitions: Optional[List[str]] = None) -> None:
         """
@@ -99,7 +100,7 @@ class RomPackage:
                 - If list specified (Port ROM): Extract only specific imgs, and extract them.
         """
         if self.rom_type == RomType.LOCAL_DIR:
-            self.logger.info(f"[{self.label}] Local dir mode, skipping payload extraction.")
+            self.logger.info(t('[%s] Local dir mode, skipping payload extraction.'), self.label)
             # Local mode, try extracting logical partitions
             self._batch_extract_files(partitions or ANDROID_LOGICAL_PARTITIONS)
             return
@@ -115,21 +116,17 @@ class RomPackage:
                     cached_partitions.append(part)
 
             if cached_partitions:
-                self.logger.info(
-                    f"[{self.label}] Found {len(cached_partitions)} cached partitions: {cached_partitions}"
-                )
+                self.logger.info(t('[%s] Found %s cached partitions: %s'), self.label, len(cached_partitions), cached_partitions)
                 # Restore cached partitions
                 for part in cached_partitions:
                     target_dir = self.extracted_dir / part
                     if self.cache_manager.restore_partition(self.path, part, target_dir):
-                        self.logger.info(f"[{self.label}] Restored {part} from global cache")
+                        self.logger.info(t('[%s] Restored %s from global cache'), self.label, part)
 
                 # Extract remaining partitions that are not cached
                 remaining = [p for p in partitions if p not in cached_partitions]
                 if not remaining:
-                    self.logger.info(
-                        f"[{self.label}] All partitions restored from cache, skipping extraction"
-                    )
+                    self.logger.info(t('[%s] All partitions restored from cache, skipping extraction'), self.label)
                     return
                 partitions = remaining
 
@@ -147,29 +144,29 @@ class RomPackage:
                     saved_hash = f.read().strip()
                 source_changed = saved_hash != current_source_hash
             except Exception:
-                self.logger.warning(f"[{self.label}] Could not read hash file, re-extracting.")
+                self.logger.warning(t('[%s] Could not read hash file, re-extracting.'), self.label)
                 source_changed = True  # Error reading hash file, consider as changed
         else:
             source_changed = True  # No hash file exists, assume source change
 
         if source_changed:
-            self.logger.info(f"[{self.label}] Source file changed, starting re-extraction...")
+            self.logger.info(t('[%s] Source file changed, starting re-extraction...'), self.label)
             # Clean up old extracted data to avoid stale cache
             if self.extracted_dir.exists():
-                self.logger.info(f"[{self.label}] Cleaning up old extracted directory...")
+                self.logger.info(t('[%s] Cleaning up old extracted directory...'), self.label)
                 shutil.rmtree(self.extracted_dir)
             if self.config_dir.exists():
                 shutil.rmtree(self.config_dir)
             # Clean up old images as well for consistency
             if any(self.images_dir.iterdir()):
-                self.logger.info(f"[{self.label}] Cleaning up old images directory...")
+                self.logger.info(t('[%s] Cleaning up old images directory...'), self.label)
                 for item in self.images_dir.iterdir():
                     if item.is_file():
                         item.unlink()
                     elif item.is_dir():
                         shutil.rmtree(item)
         else:
-            self.logger.info(f"[{self.label}] Source file unchanged, checking cached data...")
+            self.logger.info(t('[%s] Source file unchanged, checking cached data...'), self.label)
 
             # Check if cached images exist and are not empty
             # Enhanced check: ensure at least 'system.img' (or 'system_a.img') exists
@@ -183,13 +180,11 @@ class RomPackage:
             )
 
             if has_images and has_system and not incomplete_fastboot:
-                self.logger.info(f"[{self.label}] Using cached images from previous extraction.")
+                self.logger.info(t('[%s] Using cached images from previous extraction.'), self.label)
                 self._batch_extract_files(partitions or ANDROID_LOGICAL_PARTITIONS)
                 return  # Nothing to do if cached extraction is valid
             else:
-                self.logger.info(
-                    f"[{self.label}] Source unchanged but cached images are missing or incomplete, re-extracting..."
-                )
+                self.logger.info(t('[%s] Source unchanged but cached images are missing or incomplete, re-extracting...'), self.label)
                 source_changed = True
 
         # Execute extraction if source changed
@@ -206,7 +201,7 @@ class RomPackage:
                 extract_fastboot(self, partitions)
 
         except Exception as e:
-            self.logger.error(f"Image extraction failed: {e}")
+            self.logger.error(t('Image extraction failed: %s'), e)
             raise
 
         self._batch_extract_files(partitions or ANDROID_LOGICAL_PARTITIONS)
@@ -216,11 +211,9 @@ class RomPackage:
             try:
                 with open(source_hash_path, "w") as f:
                     f.write(current_source_hash)
-                self.logger.info(
-                    f"[{self.label}] Saved source file hash for future change detection."
-                )
+                self.logger.info(t('[%s] Saved source file hash for future change detection.'), self.label)
             except Exception as e:
-                self.logger.warning(f"[{self.label}] Could not save source hash file: {e}")
+                self.logger.warning(t('[%s] Could not save source hash file: %s'), self.label, e)
 
     def _batch_extract_files(self, candidates: List[str]) -> None:
         """Batch call extract_partition_to_file (Parallel optimization).
@@ -228,7 +221,7 @@ class RomPackage:
         Args:
             candidates: List of partition names to extract.
         """
-        self.logger.info(f"[{self.label}] Processing file extraction for logical partitions...")
+        self.logger.info(t('[%s] Processing file extraction for logical partitions...'), self.label)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
             futures = []
@@ -240,15 +233,13 @@ class RomPackage:
                 if img_path.exists():
                     futures.append(executor.submit(self.extract_partition_to_file, part))
                 else:
-                    self.logger.debug(
-                        f"[{self.label}] Partition image {part} not found, skipping extract."
-                    )
+                    self.logger.debug(t('[%s] Partition image %s not found, skipping extract.'), self.label, part)
 
             for future in concurrent.futures.as_completed(futures):
                 try:
                     future.result()
                 except Exception as e:
-                    self.logger.error(f"Partition extraction failed: {e}")
+                    self.logger.error(t('Partition extraction failed: %s'), e)
                     raise
 
     def extract_partition_to_file(self, part_name: str) -> Optional[Path]:
@@ -265,7 +256,7 @@ class RomPackage:
         has_content = target_dir.exists() and any(target_dir.iterdir())
 
         if has_content and config_exists:
-            self.logger.info(f"[{self.label}] Partition {part_name} already extracted.")
+            self.logger.info(t('[%s] Partition %s already extracted.'), self.label, part_name)
             return target_dir
 
         img_path = self.images_dir / f"{part_name}.img"
@@ -273,10 +264,10 @@ class RomPackage:
             # Fallback for old cases or other ROM types, though fastboot should be normalized now
             img_path = self.images_dir / f"{part_name}_a.img"
             if not img_path.exists():
-                self.logger.warning(f"[{self.label}] Image {part_name}.img not found.")
+                self.logger.warning(t('[%s] Image %s.img not found.'), self.label, part_name)
                 return None
 
-        self.logger.info(f"[{self.label}] Extracting {part_name}.img to filesystem...")
+        self.logger.info(t('[%s] Extracting %s.img to filesystem...'), self.label, part_name)
         target_dir.mkdir(parents=True, exist_ok=True)
         self.config_dir.mkdir(parents=True, exist_ok=True)
 
@@ -300,10 +291,10 @@ class RomPackage:
                     if target_dir.exists():
                         shutil.rmtree(target_dir)
                     actual_dir.rename(target_dir)
-                    self.logger.info(f"[{self.label}] Renamed {extracted_name} to {part_name}")
+                    self.logger.info(t('[%s] Renamed %s to %s'), self.label, extracted_name, part_name)
 
         except Exception as e:
-            self.logger.error(f"Failed to extract {part_name}: {e}")
+            self.logger.error(t('Failed to extract %s: %s'), part_name, e)
             return None
 
         # Robust config file detection
@@ -342,9 +333,9 @@ class RomPackage:
                         "extracted_at": str(Path().stat().st_mtime),
                     },
                 )
-                self.logger.debug(f"[{self.label}] Cached partition {part_name} to global cache")
+                self.logger.debug(t('[%s] Cached partition %s to global cache'), self.label, part_name)
             except Exception as e:
-                self.logger.warning(f"[{self.label}] Failed to cache partition {part_name}: {e}")
+                self.logger.warning(t('[%s] Failed to cache partition %s: %s'), self.label, part_name, e)
 
         return target_dir
 
@@ -365,16 +356,16 @@ class RomPackage:
     def parse_all_props(self) -> None:
         """Scan and parse all build.prop files in extracted dir."""
         if not self.extracted_dir.exists():
-            self.logger.warning(f"[{self.label}] Extracted dir not found, skipping props parsing.")
+            self.logger.warning(t('[%s] Extracted dir not found, skipping props parsing.'), self.label)
             return
 
         self.props = {}
         self.prop_history = {}
-        self.logger.info(f"[{self.label}] Scanning and parsing all build.prop files...")
+        self.logger.info(t('[%s] Scanning and parsing all build.prop files...'), self.label)
 
         prop_files = list(self.extracted_dir.rglob("build.prop"))
         if not prop_files:
-            self.logger.warning(f"[{self.label}] No build.prop files found.")
+            self.logger.warning(t('[%s] No build.prop files found.'), self.label)
             return
 
         prop_files.sort(key=sort_prop_priority)
@@ -383,9 +374,7 @@ class RomPackage:
                 prop_file, self.extracted_dir, self.props, self.prop_history, self.logger
             )
 
-        self.logger.info(
-            f"[{self.label}] Loaded {len(self.props)} properties from {len(prop_files)} files."
-        )
+        self.logger.info(t('[%s] Loaded %s properties from %s files.'), self.label, len(self.props), len(prop_files))
 
     def export_props(self, output_path: Union[str, Path]) -> None:
         """Export all props to file, including Override debug info.
@@ -395,7 +384,7 @@ class RomPackage:
         """
         out_file = Path(output_path)
         out_file.parent.mkdir(parents=True, exist_ok=True)
-        self.logger.info(f"[{self.label}] Exporting debug props to {out_file} ...")
+        self.logger.info(t('[%s] Exporting debug props to %s ...'), self.label, out_file)
 
         if not self.props:
             self.parse_all_props()
@@ -417,7 +406,7 @@ class RomPackage:
 
         with open(out_file, "w", encoding="utf-8") as f:
             f.write("\n".join(content))
-        self.logger.info(f"[{self.label}] Debug props saved.")
+        self.logger.info(t('[%s] Debug props saved.'), self.label)
 
     def get_prop(self, key: str, default: Optional[str] = None) -> Optional[str]:
         """Get property value. Triggers full load if cache is empty.

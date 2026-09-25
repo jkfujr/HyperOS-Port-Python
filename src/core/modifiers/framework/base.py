@@ -13,6 +13,7 @@ from src.core.modifiers.base_modifier import BaseModifier
 from src.core.modifiers.smali_args import SmaliArgs
 from src.utils.shell import ShellRunner
 from src.utils.smalikit import SmaliKit
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.context import PortingContext
@@ -117,11 +118,11 @@ class FrameworkModifierBase(BaseModifier):
             }
             (cache_dir / "metadata.json").write_text(json.dumps(metadata, indent=2))
 
-            self.logger.debug(f"Cached modified JAR: {jar_name}")
+            self.logger.debug(t('Cached modified JAR: %s'), jar_name)
             return True
 
         except Exception as e:
-            self.logger.warning(f"Failed to cache JAR {jar_name}: {e}")
+            self.logger.warning(t('Failed to cache JAR %s: %s'), jar_name, e)
             return False
 
     def _run_smalikit(self, **kwargs) -> None:
@@ -163,7 +164,7 @@ class FrameworkModifierBase(BaseModifier):
         if old in content:
             new_content = content.replace(old, new)
             file_path.write_text(new_content, encoding="utf-8")
-            self.logger.info(f"Patched {file_path.name}: {old[:20]}... -> {new[:20]}...")
+            self.logger.info(t('Patched %s: %s... -> %s...'), file_path.name, old[:20], new[:20])
 
     def _copy_to_next_classes(self, work_dir: Path, source_dir: Path) -> None:
         """Copy smali classes to next available classes directory."""
@@ -182,7 +183,7 @@ class FrameworkModifierBase(BaseModifier):
 
         target = work_dir / "smali" / f"classes{max_num + 1}"
         shutil.copytree(source_dir, target, dirs_exist_ok=True)
-        self.logger.info(f"Copied classes to {target.name}")
+        self.logger.info(t('Copied classes to %s'), target.name)
 
     def _extract_register_from_invoke(
         self, content: str, method_signature: str, invoke_signature: str, arg_index: int = 1
@@ -194,7 +195,7 @@ class FrameworkModifierBase(BaseModifier):
         method_match = method_pattern.search(content)
 
         if not method_match:
-            self.logger.warning(f"Target method not found: {method_signature}")
+            self.logger.warning(t('Target method not found: %s'), method_signature)
             return None
 
         method_body = method_match.group(1)
@@ -203,7 +204,7 @@ class FrameworkModifierBase(BaseModifier):
         invoke_match = invoke_pattern.search(method_body)
 
         if not invoke_match:
-            self.logger.warning(f"Invoke signature not found in method body: {invoke_signature}")
+            self.logger.warning(t('Invoke signature not found in method body: %s'), invoke_signature)
             return None
 
         matched_regs_str = invoke_match.group(1)
@@ -211,10 +212,10 @@ class FrameworkModifierBase(BaseModifier):
 
         if arg_index < len(reg_list):
             extracted_reg = reg_list[arg_index]
-            self.logger.debug(f"Extracted register {extracted_reg} from {method_signature}")
+            self.logger.debug(t('Extracted register %s from %s'), extracted_reg, method_signature)
             return extracted_reg
         else:
-            self.logger.warning(f"arg_index {arg_index} out of bounds for registers: {reg_list}")
+            self.logger.warning(t('arg_index %s out of bounds for registers: %s'), arg_index, reg_list)
             return None
 
     def _extract_register_from_local(

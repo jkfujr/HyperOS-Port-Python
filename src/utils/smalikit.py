@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import sys
+from src.utils.i18n import t
 
 
 class SmaliArgs:
@@ -68,7 +69,7 @@ class SmaliKit:
             method_name_pattern = None
 
         else:
-            self.logger.error("You must provide either -m (Method Name) or -seek (Keyword search)")
+            self.logger.error(t('You must provide either -m (Method Name) or -seek (Keyword search)'))
             sys.exit(1)
 
         # Compile regex
@@ -111,7 +112,7 @@ class SmaliKit:
     def log(self, message, color=Colors.ENDC):
         # Log to the logger, stripping color codes if it's going to a file (optional)
         # But here we log the colored version to terminal (via logger)
-        self.logger.info(f"{color}{message}{Colors.ENDC}")
+        self.logger.info('%s%s%s', color, message, Colors.ENDC)
 
     def apply_modifications(self, original_body):
         """

@@ -2,6 +2,7 @@ import logging
 import zipfile
 from pathlib import Path
 from typing import Optional
+from src.utils.i18n import t
 
 
 class OtaToolsManager:
@@ -51,10 +52,10 @@ class OtaToolsManager:
             
             success = download_file(url, temp_file, self.logger)
             if not success:
-                self.logger.error("Failed to download otatools.")
+                self.logger.error(t('Failed to download otatools.'))
                 return False
 
-            self.logger.info("Download completed. Extracting...")
+            self.logger.info(t('Download completed. Extracting...'))
 
             # Create the directory if it doesn't exist
             self.tools_dir.mkdir(parents=True, exist_ok=True)
@@ -63,7 +64,7 @@ class OtaToolsManager:
             with zipfile.ZipFile(temp_file, "r") as zip_ref:
                 zip_ref.extractall(self.tools_dir)
 
-            self.logger.info(f"otatools extracted to {self.tools_dir.resolve()}")
+            self.logger.info(t('otatools extracted to %s'), self.tools_dir.resolve())
 
             # Set execute permissions on bin directory files
             bin_dir = self.tools_dir / "bin"
@@ -74,14 +75,14 @@ class OtaToolsManager:
                         file.chmod(
                             current_mode | 0o111
                         )  # Add execute permission for user, group, and others
-                self.logger.info("Set execute permissions on otatools binaries")
+                self.logger.info(t('Set execute permissions on otatools binaries'))
 
             # Remove the temporary zip file
             temp_file.unlink()
 
             return True
         except Exception as e:
-            self.logger.error(f"Failed to download and extract otatools: {str(e)}")
+            self.logger.error(t('Failed to download and extract otatools: %s'), str(e))
             return False
 
     def ensure_otatools(self) -> bool:
@@ -92,15 +93,11 @@ class OtaToolsManager:
             True if otatools is available or successfully downloaded, False otherwise
         """
         if self.check_otatools_exists():
-            self.logger.info(f"otatools already exists and is complete at {self.tools_dir.resolve()}")
+            self.logger.info(t('otatools already exists and is complete at %s'), self.tools_dir.resolve())
             return True
 
         if self.tools_dir.exists():
-            self.logger.warning(
-                f"otatools directory exists but is incomplete or missing critical binaries. Re-downloading from {self.DEFAULT_URL}"
-            )
+            self.logger.warning(t('otatools directory exists but is incomplete or missing critical binaries. Re-downloading from %s'), self.DEFAULT_URL)
         else:
-            self.logger.info(
-                f"otatools directory does not exist. Attempting to download from {self.DEFAULT_URL}"
-            )
+            self.logger.info(t('otatools directory does not exist. Attempting to download from %s'), self.DEFAULT_URL)
         return self.download_otatools()

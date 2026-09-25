@@ -17,6 +17,7 @@ from src.core.workspace import (
 )
 from src.utils.shell import ShellRunner
 from src.utils.sync_engine import ROMSyncEngine
+from src.utils.i18n import t
 
 if TYPE_CHECKING:
     from src.core.cache_manager import PortRomCacheManager
@@ -79,7 +80,7 @@ class PortingContext:
         2. Extract and copy folders.
         3. Copy corresponding SELinux/fs_config configurations.
         """
-        self.logger.info(f"Initializing Target Workspace at {self.target_dir}")
+        self.logger.info(t('Initializing Target Workspace at %s'), self.target_dir)
 
         prepare_target_directories(self, clean_existing=clean_existing)
         partition_layout = build_partition_layout(self)
@@ -95,14 +96,14 @@ class PortingContext:
                 try:
                     future.result()
                 except Exception as e:
-                    self.logger.error(f"Partition install failed: {e}")
+                    self.logger.error(t('Partition install failed: %s'), e)
                     # raise e # Optional
 
         self._copy_firmware_images(list(partition_layout))
 
         self.get_rom_info()
 
-        self.logger.info("Target Workspace Initialized.")
+        self.logger.info(t('Target Workspace Initialized.'))
 
     def _install_partition(self, part_name: str, source_rom: RomPackage) -> None:
         """Install partition from source ROM to target workspace."""
@@ -199,7 +200,7 @@ class PortingContext:
             )
             return result.stdout.strip()
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as e:
-            self.logger.debug(f"Failed to parse package name for {apk_path.name}: {e}")
+            self.logger.debug(t('Failed to parse package name for %s: %s'), apk_path.name, e)
             return None
 
     def find_apk_by_name(self, apk_name: str) -> Optional[Path]:
@@ -234,4 +235,4 @@ class PortingContext:
         """Clear APK caches to free memory."""
         self.syncer._rom_caches.clear()
         self.syncer._package_caches.clear()
-        self.logger.debug("APK caches cleared")
+        self.logger.debug(t('APK caches cleared'))

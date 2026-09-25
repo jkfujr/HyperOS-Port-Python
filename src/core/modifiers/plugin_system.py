@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Type
 
 from src.core.modifiers.transaction import TransactionManager
+from src.utils.i18n import t
 
 logger = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ class ModifierPlugin(ABC):
 
         This prevents output interleaving in parallel execution.
         """
-        self.logger.debug(f"Executing command: {' '.join(cmd) if isinstance(cmd, list) else cmd}")
+        self.logger.debug(t('Executing command: %s'), ' '.join(cmd) if isinstance(cmd, list) else cmd)
 
         try:
             process = subprocess.Popen(
@@ -98,11 +99,11 @@ class ModifierPlugin(ABC):
 
             if process.stdout:
                 for line in process.stdout:
-                    self.logger.info(f"  [STDOUT] {line.strip()}")
+                    self.logger.info(t('  [STDOUT] %s'), line.strip())
 
             return process.wait() == 0
         except Exception as e:
-            self.logger.error(f"Failed to execute command: {e}")
+            self.logger.error(t('Failed to execute command: %s'), e)
             return False
 
     def check_prerequisites(self) -> bool:
@@ -262,7 +263,7 @@ class PluginManager:
         instance.set_plugin_manager(self)
 
         self._plugins[instance.name] = instance
-        self.logger.debug(f"Registered plugin: {instance}")
+        self.logger.debug(t('Registered plugin: %s'), instance)
         return self
 
     def unregister(self, name: str) -> bool:
@@ -273,7 +274,7 @@ class PluginManager:
         """
         if name in self._plugins:
             del self._plugins[name]
-            self.logger.debug(f"Unregistered plugin: {name}")
+            self.logger.debug(t('Unregistered plugin: %s'), name)
             return True
         return False
 
@@ -323,7 +324,7 @@ class PluginManager:
 
             if not ready:
                 # Circular dependency or missing dependency
-                self.logger.error(f"Cannot resolve dependencies for: {unresolved}")
+                self.logger.error(t('Cannot resolve dependencies for: %s'), unresolved)
                 break
 
             # Sort by priority
@@ -350,18 +351,12 @@ class PluginManager:
 
         if plugin.min_version:
             if rom_version < plugin.min_version:
-                self.logger.info(
-                    f"Skipping {plugin.name}: ROM version {rom_version} < "
-                    f"minimum required {plugin.min_version}"
-                )
+                self.logger.info(t('Skipping %s: ROM version %s < minimum required %s'), plugin.name, rom_version, plugin.min_version)
                 return False
 
         if plugin.max_version:
             if rom_version > plugin.max_version:
-                self.logger.info(
-                    f"Skipping {plugin.name}: ROM version {rom_version} > "
-                    f"maximum supported {plugin.max_version}"
-                )
+                self.logger.info(t('Skipping %s: ROM version %s > maximum supported %s'), plugin.name, rom_version, plugin.max_version)
                 return False
 
         return True
@@ -401,14 +396,12 @@ class PluginManager:
                 try:
                     hook(plugin)
                 except Exception as e:
-                    self.logger.warning(f"Pre-modify hook failed: {e}")
+                    self.logger.warning(t('Pre-modify hook failed: %s'), e)
 
             # Check prerequisites
             prerequisites_ok, prereq_reason = plugin.check_prerequisites_with_reason()
             if not prerequisites_ok:
-                self.logger.info(
-                    f"Skipping plugin {plugin.name}: prerequisites not met ({prereq_reason})"
-                )
+                self.logger.info(t('Skipping plugin %s: prerequisites not met (%s)'), plugin.name, prereq_reason)
                 return None
 
             # Check version compatibility
@@ -417,10 +410,10 @@ class PluginManager:
 
             # Dry-run mode
             if self._dry_run:
-                self.logger.info(f"[DRY-RUN] Would execute plugin: {plugin.name}")
-                self.logger.info(f"  - Description: {plugin.description}")
-                self.logger.info(f"  - Priority: {plugin.priority}")
-                self.logger.info(f"  - Timeout: {plugin.timeout}s")
+                self.logger.info(t('[DRY-RUN] Would execute plugin: %s'), plugin.name)
+                self.logger.info(t('  - Description: %s'), plugin.description)
+                self.logger.info(t('  - Priority: %s'), plugin.priority)
+                self.logger.info(t('  - Timeout: %ss'), plugin.timeout)
                 return True
 
             # Execute plugin with optional timeout
@@ -434,10 +427,10 @@ class PluginManager:
                             success = plugin.modify()
 
                         if success:
-                            self.logger.info(f"Plugin {plugin.name} completed successfully")
+                            self.logger.info(t('Plugin %s completed successfully'), plugin.name)
                             self._transaction_manager.commit(plugin.name)
                         else:
-                            self.logger.warning(f"Plugin {plugin.name} returned failure")
+                            self.logger.warning(t('Plugin %s returned failure'), plugin.name)
                         return success
                 else:
                     timeout = plugin.timeout
@@ -447,20 +440,20 @@ class PluginManager:
                         success = plugin.modify()
 
                     if success:
-                        self.logger.info(f"Plugin {plugin.name} completed successfully")
+                        self.logger.info(t('Plugin %s completed successfully'), plugin.name)
                     else:
-                        self.logger.warning(f"Plugin {plugin.name} returned failure")
+                        self.logger.warning(t('Plugin %s returned failure'), plugin.name)
                     return success
 
             except Exception as e:
-                self.logger.error(f"Plugin {plugin.name} failed: {e}")
+                self.logger.error(t('Plugin %s failed: %s'), plugin.name, e)
 
                 # Run error hooks
                 for hook in self._hooks["on_error"]:
                     try:
                         hook(plugin, e)
                     except Exception as hook_e:
-                        self.logger.warning(f"Error hook failed: {hook_e}")
+                        self.logger.warning(t('Error hook failed: %s'), hook_e)
 
                 return False
         finally:
@@ -496,7 +489,7 @@ class PluginManager:
         thread.join(timeout)
 
         if thread.is_alive():
-            self.logger.error(f"Plugin {plugin.name} timed out after {timeout}s")
+            self.logger.error(t('Plugin %s timed out after %ss'), plugin.name, timeout)
             return False
 
         if exception[0]:
@@ -524,7 +517,7 @@ class PluginManager:
         else:
             plugins = self._sort_plugins()
 
-        self.logger.info(f"Executing {len(plugins)} plugins...")
+        self.logger.info(t('Executing %s plugins...'), len(plugins))
         self._execution_report["total"] = len(plugins)
 
         # Group by priority
@@ -539,9 +532,7 @@ class PluginManager:
 
             if parallel_safe and len(group) > 1 and not self._dry_run:
                 # Execute in parallel
-                self.logger.info(
-                    f"Executing {len(group)} plugins in parallel (priority={priority})..."
-                )
+                self.logger.info(t('Executing %s plugins in parallel (priority=%s)...'), len(group), priority)
 
                 # Collect buffered logs and results
                 plugin_logs: Dict[str, str] = {}
@@ -590,26 +581,22 @@ class PluginManager:
 
                             if skip_reason and skip_reason.startswith("prerequisites:"):
                                 reason = skip_reason.split(":", 1)[1]
-                                self.logger.info(
-                                    f"Plugin {plugin.name}: prerequisites not met ({reason}), skipped"
-                                )
+                                self.logger.info(t('Plugin %s: prerequisites not met (%s), skipped'), plugin.name, reason)
                                 results[plugin.name] = None
                             elif skip_reason == "version":
-                                self.logger.info(
-                                    f"Plugin {plugin.name}: version incompatible, skipped"
-                                )
+                                self.logger.info(t('Plugin %s: version incompatible, skipped'), plugin.name)
                                 results[plugin.name] = None
                             elif isinstance(result, Exception):
                                 plugin_errors[plugin.name] = result
                                 results[plugin.name] = False
-                                self.logger.error(f"Plugin {plugin.name} failed: {result}")
+                                self.logger.error(t('Plugin %s failed: %s'), plugin.name, result)
                             else:
                                 results[plugin.name] = bool(result)
                                 # Capture buffered logs
                                 if buffer_handler:
                                     plugin_logs[plugin.name] = buffer_handler.buffer.getvalue()
                         except Exception as e:
-                            self.logger.error(f"Plugin {plugin.name} execution error: {e}")
+                            self.logger.error(t('Plugin %s execution error: %s'), plugin.name, e)
                             results[plugin.name] = False
 
                 # Flush logs in submission order (not completion order)
@@ -617,16 +604,14 @@ class PluginManager:
                     if plugin.name in plugin_logs:
                         with self._print_lock:
                             if plugin_logs[plugin.name]:
-                                logger.info(f"=== {plugin.name} ===")
+                                logger.info(t('=== %s ==='), plugin.name)
                                 logger.info(plugin_logs[plugin.name].rstrip("\n"))
                     elif plugin.name in plugin_errors:
-                        self.logger.error(
-                            f"Plugin {plugin.name} failed: {plugin_errors[plugin.name]}"
-                        )
+                        self.logger.error(t('Plugin %s failed: %s'), plugin.name, plugin_errors[plugin.name])
             else:
                 # Execute serially
                 for plugin in group:
-                    self.logger.info(f"Running plugin: {plugin.name}")
+                    self.logger.info(t('Running plugin: %s'), plugin.name)
                     results[plugin.name] = self._execute_single_plugin(plugin)
 
             # Update execution report

@@ -2,6 +2,7 @@ import json
 import logging
 from pathlib import Path
 from typing import Any, Optional, cast
+from src.utils.i18n import t
 
 
 class ConfigMerger:
@@ -54,15 +55,13 @@ class ConfigMerger:
                 config_data = json.load(f)
             if isinstance(config_data, dict):
                 return cast(dict[str, Any], config_data)
-            self.logger.error(
-                f"Config root in {config_path} is not an object: {type(config_data).__name__}"
-            )
+            self.logger.error(t('Config root in %s is not an object: %s'), config_path, type(config_data).__name__)
             return {}
         except json.JSONDecodeError as e:
-            self.logger.error(f"Failed to parse {config_path}: {e}")
+            self.logger.error(t('Failed to parse %s: %s'), config_path, e)
             return {}
         except Exception as e:
-            self.logger.error(f"Failed to load {config_path}: {e}")
+            self.logger.error(t('Failed to load %s: %s'), config_path, e)
             return {}
 
     def load_device_config(self, device_codename: str) -> dict[str, Any]:
@@ -81,12 +80,12 @@ class ConfigMerger:
         # Load common config
         common_config = self.load_config(devices_dir / "common" / "config.json")
         if common_config:
-            self.logger.info("Loaded common config.")
+            self.logger.info(t('Loaded common config.'))
 
         # Load device-specific config
         device_config = self.load_config(devices_dir / device_codename / "config.json")
         if device_config:
-            self.logger.info(f"Loaded device config for {device_codename}.")
+            self.logger.info(t('Loaded device config for %s.'), device_codename)
 
         # Merge configurations
         merged = self.deep_merge(common_config, device_config)
@@ -102,13 +101,10 @@ class ConfigMerger:
         pack = config.get("pack", {})
         ksu = config.get("ksu", {})
 
-        self.logger.info(f"Configuration for {device_codename}:")
-        self.logger.info(f"  Wild Boost: enabled={wild_boost.get('enable', False)}")
-        self.logger.info(
-            f"  Pack: type={pack.get('type', 'payload')}, "
-            f"fs_type={pack.get('fs_type', 'erofs')}"
-        )
-        self.logger.info(f"  KSU: enabled={ksu.get('enable', False)}")
+        self.logger.info(t('Configuration for %s:'), device_codename)
+        self.logger.info(t('  Wild Boost: enabled=%s'), wild_boost.get('enable', False))
+        self.logger.info(t('  Pack: type=%s, fs_type=%s'), pack.get('type', 'payload'), pack.get('fs_type', 'erofs'))
+        self.logger.info(t('  KSU: enabled=%s'), ksu.get('enable', False))
 
 
 def load_device_config(

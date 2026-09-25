@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from src.utils.i18n import t
 
 
 @dataclass
@@ -44,7 +45,7 @@ class Transaction:
             int: Number of files rolled back
         """
         if self.rolled_back:
-            logger.warning(f"Transaction '{self.name}' already rolled back")
+            logger.warning(t("Transaction '%s' already rolled back"), self.name)
             return 0
         
         rolled_back = 0
@@ -59,14 +60,14 @@ class Transaction:
                             mod.original_path.unlink()
                     shutil.copy2(mod.backup_path, mod.original_path)
                     rolled_back += 1
-                    logger.debug(f"Rolled back: {mod.original_path}")
+                    logger.debug(t('Rolled back: %s'), mod.original_path)
                     
                 elif mod.action == 'delete':
                     # Restore deleted file from backup
                     if mod.backup_path and mod.backup_path.exists():
                         shutil.copy2(mod.backup_path, mod.original_path)
                         rolled_back += 1
-                        logger.debug(f"Restored deleted: {mod.original_path}")
+                        logger.debug(t('Restored deleted: %s'), mod.original_path)
                         
                 elif mod.action == 'create':
                     # Remove created file/directory
@@ -76,10 +77,10 @@ class Transaction:
                         else:
                             mod.original_path.unlink()
                         rolled_back += 1
-                        logger.debug(f"Removed created: {mod.original_path}")
+                        logger.debug(t('Removed created: %s'), mod.original_path)
                         
             except Exception as e:
-                logger.error(f"Failed to rollback {mod.original_path}: {e}")
+                logger.error(t('Failed to rollback %s: %s'), mod.original_path, e)
         
         self.rolled_back = True
         return rolled_back
@@ -114,9 +115,9 @@ class TransactionManager:
         try:
             yield txn
             txn.completed = True
-            self.logger.info(f"Transaction '{name}' completed successfully")
+            self.logger.info(t("Transaction '%s' completed successfully"), name)
         except Exception as e:
-            self.logger.error(f"Transaction '{name}' failed: {e}")
+            self.logger.error(t("Transaction '%s' failed: %s"), name, e)
             self.rollback(name)
             raise
         finally:
@@ -134,7 +135,7 @@ class TransactionManager:
             Path to backup file if created, None otherwise
         """
         if not self._current_transaction:
-            self.logger.debug(f"No active transaction, skipping backup for {path}")
+            self.logger.debug(t('No active transaction, skipping backup for %s'), path)
             return None
         
         backup_path = None
@@ -151,9 +152,9 @@ class TransactionManager:
                     shutil.copytree(path, backup_path, symlinks=True)
                 else:
                     shutil.copy2(path, backup_path)
-                self.logger.debug(f"Created backup: {backup_path}")
+                self.logger.debug(t('Created backup: %s'), backup_path)
             except Exception as e:
-                self.logger.warning(f"Failed to create backup for {path}: {e}")
+                self.logger.warning(t('Failed to create backup for %s: %s'), path, e)
                 backup_path = None
         
         # Record the modification
@@ -179,7 +180,7 @@ class TransactionManager:
             if txn.name == transaction_name:
                 return txn.rollback(self.logger)
         
-        self.logger.warning(f"Transaction '{transaction_name}' not found")
+        self.logger.warning(t("Transaction '%s' not found"), transaction_name)
         return 0
     
     def rollback_all(self) -> int:
@@ -210,7 +211,7 @@ class TransactionManager:
                         except:
                             pass
                 txn.completed = True
-                self.logger.info(f"Transaction '{transaction_name}' committed")
+                self.logger.info(t("Transaction '%s' committed"), transaction_name)
                 break
     
     def get_status(self) -> Dict[str, Any]:
@@ -239,9 +240,9 @@ class TransactionManager:
             try:
                 shutil.rmtree(self.backup_dir)
                 self.backup_dir.mkdir(parents=True, exist_ok=True)
-                self.logger.info("Cleaned up backup directory")
+                self.logger.info(t('Cleaned up backup directory'))
             except Exception as e:
-                self.logger.warning(f"Failed to cleanup backup directory: {e}")
+                self.logger.warning(t('Failed to cleanup backup directory: %s'), e)
 
 
 # Helper functions for easy integration

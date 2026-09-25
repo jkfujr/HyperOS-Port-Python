@@ -10,6 +10,7 @@ from src.core.modifiers.plugins import (
     VNDKFixPlugin,
     WildBoostPlugin,
 )
+from src.utils.i18n import t
 
 
 class SystemModifier(BaseModifier):
@@ -38,7 +39,7 @@ class SystemModifier(BaseModifier):
     
     def run(self):
         """Execute all system modifications via plugins."""
-        self.logger.info("Starting System Modification...")
+        self.logger.info(t('Starting System Modification...'))
         
         # Execute all registered plugins
         results = self.plugin_manager.execute()
@@ -48,10 +49,7 @@ class SystemModifier(BaseModifier):
         failed_count = sum(1 for r in results.values() if r is False)
         skipped_count = sum(1 for r in results.values() if r is None)
         
-        self.logger.info(
-            f"System Modification Completed: "
-            f"{success_count} succeeded, {failed_count} failed, {skipped_count} skipped"
-        )
+        self.logger.info(t('System Modification Completed: %s succeeded, %s failed, %s skipped'), success_count, failed_count, skipped_count)
         
         return failed_count == 0
     
